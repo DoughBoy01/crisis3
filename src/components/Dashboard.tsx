@@ -21,6 +21,7 @@ import { useMarketFeeds, getBrentFromFeeds, getFxFromFeeds } from '@/hooks/useMa
 import { useDailyBrief } from '@/hooks/useDailyBrief';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { ChevronDown, ChevronUp, Shield, BarChart2, Newspaper, Filter } from 'lucide-react';
+import DevControlsPanel from './DevControlsPanel';
 
 const NEWS_SOURCES_LIST = [
   "BBC Business RSS",
@@ -436,6 +437,8 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
                 onRefresh={refreshFeeds}
               />
             </div>
+
+            <DevControlsPanel />
           </div>
 
         </div>
