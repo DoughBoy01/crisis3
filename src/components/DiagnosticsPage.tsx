@@ -463,8 +463,19 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
             )}
           </div>
           {scoutRun && (
-            <div className="mb-3 rounded-lg border border-slate-700/50 bg-slate-900/40 px-4 py-3 flex flex-wrap gap-4 text-[11px] font-mono text-slate-400">
-              <span>Model: <span className="text-slate-200">{scoutRun.model}</span></span>
+            <div className="mb-3 rounded-lg border border-slate-700/50 bg-slate-900/40 px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-mono text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="text-[9px] font-bold tracking-widest uppercase text-sky-400/70 bg-sky-500/10 border border-sky-500/20 rounded px-1.5 py-0.5">AI</span>
+                <span className="text-slate-200">{scoutRun.model}</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-slate-400">DawnSignal data scout</span>
+                {scoutRun.completed_at && (
+                  <>
+                    <span className="text-slate-600">·</span>
+                    <span className="text-slate-500">{new Date(scoutRun.completed_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} GMT</span>
+                  </>
+                )}
+              </span>
               <span>Prompt tokens: <span className="text-slate-200">{scoutRun.total_prompt_tokens?.toLocaleString()}</span></span>
               <span>Completion tokens: <span className="text-slate-200">{scoutRun.total_completion_tokens?.toLocaleString()}</span></span>
               <span>Forced: <span className={scoutRun.forced ? 'text-amber-400' : 'text-slate-200'}>{scoutRun.forced ? 'yes' : 'no'}</span></span>
