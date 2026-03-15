@@ -7,6 +7,24 @@ export interface PricePoint {
   value: number;
 }
 
+export interface PercentileContext {
+  rank: number;
+  label: string;
+  color: string;
+  bg: string;
+  median: number;
+  p25: number;
+  p75: number;
+  dataSource: string;
+}
+
+export interface SeasonalContext {
+  seasonalIndex: number;
+  pressureLabel: string;
+  notes: string | null;
+  color: string;
+}
+
 export interface MarketItem {
   id: string;
   name: string;
@@ -26,6 +44,8 @@ export interface MarketItem {
   history: PricePoint[];
   category: MarketCategory;
   relevantSectors: SectorId[];
+  percentileContext?: PercentileContext;
+  seasonalContext?: SeasonalContext;
 }
 
 export type MarketCategory = 'energy' | 'freight' | 'fertilizer' | 'agricultural' | 'metals';
@@ -73,6 +93,14 @@ export interface OvernightStat {
 
 export type ConflictRiskLevel = 'CRITICAL' | 'HIGH' | 'ELEVATED' | 'MODERATE' | 'LOW';
 
+export interface ConflictIntensity {
+  vsBaseline: string;
+  label: string;
+  color: string;
+  historicalImpactPct: number | null;
+  topComparableEvent: string | null;
+}
+
 export interface ConflictZone {
   id: string;
   region: string;
@@ -86,6 +114,7 @@ export interface ConflictZone {
   lastUpdated: string;
   evidenceCount: number;
   supplyImpact: string;
+  intensity?: ConflictIntensity;
 }
 
 export interface SupplyExposureItem {

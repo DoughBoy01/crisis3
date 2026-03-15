@@ -53,7 +53,110 @@ interface DailyBrief {
   completion_tokens: number | null;
 }
 
-function buildPrompt(feeds: FeedPayload): string {
+interface CommodityPercentile {
+  commodity_id: string;
+  p10: number | null;
+  p25: number | null;
+  p50: number | null;
+  p75: number | null;
+  p90: number | null;
+  data_source: string;
+}
+
+interface SeasonalPattern {
+  commodity_id: string;
+  month_number: number;
+  seasonal_index: number;
+  pressure_label: string;
+  notes: string | null;
+}
+
+interface ConflictBaseline {
+  zone_id: string;
+  zone_name: string;
+  baseline_event_frequency: number;
+  historical_commodity_impact_pct: number | null;
+}
+
+function computePercentileRank(price: number, p: CommodityPercentile): number | null {
+  if (!p.p10 || !p.p25 || !p.p50 || !p.p75 || !p.p90) return null;
+  if (price <= p.p10) return 5;
+  if (price <= p.p25) return Math.round(10 + ((price - p.p10) / (p.p25 - p.p10)) * 15);
+  if (price <= p.p50) return Math.round(25 + ((price - p.p25) / (p.p50 - p.p25)) * 25);
+  if (price <= p.p75) return Math.round(50 + ((price - p.p50) / (p.p75 - p.p50)) * 25);
+  if (price <= p.p90) return Math.round(75 + ((price - p.p75) / (p.p90 - p.p75)) * 15);
+  return Math.min(99, Math.round(90 + ((price - p.p90) / (p.p90 * 0.2)) * 9));
+}
+
+function percentileLabel(rank: number): string {
+  if (rank >= 90) return "near 10-yr high";
+  if (rank >= 75) return "above 10-yr average";
+  if (rank >= 50) return "mid 10-yr range";
+  if (rank >= 25) return "below 10-yr average";
+  return "near 10-yr low";
+}
+
+async function fetchHistoricalContext(db: ReturnType<typeof createClient>) {
+  const currentMonth = new Date().getMonth() + 1;
+
+  const [percResult, seasonalResult, conflictResult] = await Promise.all([
+    db.from("commodity_percentiles").select("commodity_id,p10,p25,p50,p75,p90,data_source").eq("lookback_years", 10),
+    db.from("commodity_seasonal_patterns").select("commodity_id,month_number,seasonal_index,pressure_label,notes").eq("month_number", currentMonth),
+    db.from("conflict_zone_baselines").select("zone_id,zone_name,baseline_event_frequency,historical_commodity_impact_pct"),
+  ]);
+
+  return {
+    percentiles: (percResult.data ?? []) as CommodityPercentile[],
+    seasonal: (seasonalResult.data ?? []) as SeasonalPattern[],
+    conflictBaselines: (conflictResult.data ?? []) as ConflictBaseline[],
+  };
+}
+
+function buildHistoricalContextSection(
+  feeds: FeedPayload,
+  percentiles: CommodityPercentile[],
+  seasonal: SeasonalPattern[],
+): string {
+  const lines: string[] = ["=== HISTORICAL CONTEXT (World Bank Pink Sheet + Seasonal Data) ==="];
+
+  const yahooPrices = feeds.sources.find(s => s.source_name === "Yahoo Finance" || s.source_name === "Stooq Market Data");
+  const symbolMap: Record<string, string> = {
+    "BZ=F": "Brent Crude",
+    "NG=F": "Natural Gas",
+    "ZW=F": "Wheat",
+    "ZC=F": "Corn",
+    "ZS=F": "Soybeans",
+    "GC=F": "Gold",
+  };
+
+  if (yahooPrices?.quotes?.length) {
+    for (const q of yahooPrices.quotes) {
+      if (!symbolMap[q.symbol] || q.price == null) continue;
+      const perc = percentiles.find(p => p.commodity_id === q.symbol);
+      if (!perc) continue;
+      const rank = computePercentileRank(q.price, perc);
+      if (rank != null) {
+        lines.push(`${symbolMap[q.symbol]}: ${rank}th percentile vs 10-yr history (${percentileLabel(rank)}) — source: ${perc.data_source}`);
+      }
+      const sp = seasonal.find(s => s.commodity_id === q.symbol);
+      if (sp && sp.pressure_label !== "NORMAL") {
+        lines.push(`  → Seasonal demand pressure this month: ${sp.pressure_label} (index ${sp.seasonal_index.toFixed(2)}x avg). ${sp.notes ?? ""}`);
+      }
+    }
+  }
+
+  if (lines.length === 1) {
+    lines.push("No historical context data available for current prices.");
+  }
+
+  return lines.join("\n");
+}
+
+function buildPrompt(
+  feeds: FeedPayload,
+  percentiles: CommodityPercentile[],
+  seasonal: SeasonalPattern[],
+): string {
   const lines: string[] = [];
 
   const newsItems: string[] = [];
@@ -94,14 +197,20 @@ function buildPrompt(feeds: FeedPayload): string {
     if (fxSrc.gbp_eur) prices.push(`GBP/EUR: ${fxSrc.gbp_eur.toFixed(4)}`);
   }
 
+  const historicalContextSection = buildHistoricalContextSection(feeds, percentiles, seasonal);
+
   lines.push("You are a procurement intelligence analyst for a UK food & agricultural business.");
   lines.push("Your monitoring window is 22:00–07:00 GMT (10pm last night to 7am this morning).");
   lines.push("Your audience receives this brief at 07:00 GMT — summarise EVERYTHING that moved or was reported during that 9-hour window.");
   lines.push("Be direct, specific, and actionable. No waffle. Use plain English.");
   lines.push("All price moves are vs the 22:00 GMT baseline (previous close or last traded price at start of window).");
+  lines.push("IMPORTANT: Use the historical percentile context below to add calibration — e.g. 'Wheat is near a 10-yr high, making this move more significant' or 'Brent is mid-range historically, so this spike may be temporary'.");
+  lines.push("Use seasonal demand context to explain whether price moves compound or conflict with seasonal patterns.");
   lines.push("");
   lines.push("=== PRICE MOVES (22:00–07:00 GMT WINDOW) ===");
   lines.push(prices.length ? prices.join("\n") : "No price data available.");
+  lines.push("");
+  lines.push(historicalContextSection);
   lines.push("");
   lines.push("=== NEWS & EVENTS (22:00–07:00 GMT WINDOW) ===");
   lines.push(newsItems.length ? newsItems.slice(0, 25).join("\n") : "No news available.");
@@ -109,7 +218,7 @@ function buildPrompt(feeds: FeedPayload): string {
   lines.push("=== YOUR TASK ===");
   lines.push("Return ONLY valid JSON with this exact structure:");
   lines.push(JSON.stringify({
-    narrative: "2-4 sentence plain-English summary of what happened overnight that a procurement manager needs to know. Lead with the biggest market move or geopolitical development.",
+    narrative: "2-4 sentence plain-English summary of what happened overnight that a procurement manager needs to know. Lead with the biggest market move or geopolitical development. Reference historical percentile position if relevant (e.g. 'Wheat is now at its 78th percentile...').",
     three_things: [
       "The single most important thing to know today (max 20 words)",
       "Second most important thing (max 20 words)",
@@ -117,10 +226,10 @@ function buildPrompt(feeds: FeedPayload): string {
     ],
     geopolitical_context: "1-2 sentences on geopolitical developments affecting commodity supply chains. Only include if genuinely relevant.",
     action_rationale: {
-      "energy": "What energy markets did overnight and why it matters for procurement",
-      "agricultural": "What grain/oilseed markets did overnight and why it matters",
+      "energy": "What energy markets did overnight and why it matters for procurement. Include historical context if percentile rank is extreme (>80th or <20th).",
+      "agricultural": "What grain/oilseed markets did overnight and why it matters. Note seasonal demand pressure if active.",
       "freight": "What freight/shipping markets did overnight and why it matters",
-      "fertilizer": "What fertilizer inputs did overnight and why it matters",
+      "fertilizer": "What fertilizer inputs did overnight and why it matters. Note spring/autumn application season pressure if relevant.",
       "fx": "What GBP moves mean for import costs today"
     }
   }));
@@ -171,6 +280,8 @@ Deno.serve(async (req: Request) => {
       feeds = await feedsRes.json() as FeedPayload;
     }
 
+    const { percentiles, seasonal } = await fetchHistoricalContext(db);
+
     if (!openaiKey) {
       const fallbackRow = {
         brief_date: todayUtc,
@@ -199,7 +310,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const prompt = buildPrompt(feeds!);
+    const prompt = buildPrompt(feeds!, percentiles, seasonal);
 
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

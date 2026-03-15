@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Shield, Zap } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Shield, Zap, TrendingUp, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { ConflictZone, ConflictRiskLevel } from '@/types';
@@ -28,6 +28,7 @@ const RISK_WIDTH: Record<ConflictRiskLevel, string> = {
 function ZoneCard({ zone }: { zone: ConflictZone }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = RISK_CONFIG[zone.riskLevel];
+  const intensity = zone.intensity;
 
   return (
     <div
@@ -50,6 +51,22 @@ function ZoneCard({ zone }: { zone: ConflictZone }) {
           <div className="mt-2 h-1 rounded-full bg-slate-700/50 overflow-hidden">
             <div className={cn('h-full rounded-full transition-all', cfg.bar, RISK_WIDTH[zone.riskLevel])} />
           </div>
+
+          {/* Intensity vs baseline — inline, always visible */}
+          {intensity && (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                <TrendingUp size={8} className={cn('shrink-0', intensity.color)} />
+                <span className={cn('text-[9px] font-semibold', intensity.color)}>{intensity.label}</span>
+              </div>
+              <span className="text-[9px] text-muted-foreground/50">{intensity.vsBaseline}</span>
+              {intensity.historicalImpactPct != null && (
+                <span className="text-[9px] text-muted-foreground/40">
+                  · avg {intensity.historicalImpactPct}% commodity impact
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <span className="text-muted-foreground/50 mt-0.5 shrink-0">
           {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -78,6 +95,23 @@ function ZoneCard({ zone }: { zone: ConflictZone }) {
             <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mb-1">Supply impact</p>
             <p className="text-[10px] text-slate-300 leading-relaxed">{zone.supplyImpact}</p>
           </div>
+
+          {/* Historical precedent */}
+          {intensity?.topComparableEvent && (
+            <div className="rounded-md bg-slate-800/50 border border-slate-700/30 px-2.5 py-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Clock size={8} className="text-muted-foreground/50" />
+                <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider">Closest historical parallel</p>
+              </div>
+              <p className="text-[10px] text-slate-300 leading-snug">{intensity.topComparableEvent}</p>
+              {intensity.historicalImpactPct != null && (
+                <p className="text-[9px] text-muted-foreground/50 mt-0.5">
+                  Past escalations: avg {intensity.historicalImpactPct}% commodity price impact
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="border-t border-slate-700/30 pt-2">
             <p className="text-[10px] text-muted-foreground/60 mb-1">Latest signal</p>
             <p className="text-[10px] text-slate-300 leading-snug line-clamp-2">{zone.latestHeadline}</p>
@@ -150,7 +184,7 @@ export default function ConflictRiskMap({ zones, loading }: ConflictRiskMapProps
         <div className="border-t border-border/30 pt-2 mt-3 flex items-start gap-1.5">
           <ExternalLink size={9} className="text-muted-foreground/40 shrink-0 mt-0.5" />
           <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
-            Sources: Reuters · Al Jazeera · BBC · ReliefWeb · Guardian · MarketWatch · Shipping feeds
+            Sources: Reuters · Al Jazeera · BBC · ReliefWeb · Guardian · MarketWatch · Shipping feeds · COW/GCRI baselines
           </p>
         </div>
       </CardContent>

@@ -1,5 +1,7 @@
 import type { FeedPayload, FeedSource, YahooQuote } from '@/hooks/useMarketFeeds';
-import type { MarketItem, MarketCategory, OvernightStat, ActionItem, MorningAlert, SectorId, Signal, ConflictZone, ConflictRiskLevel, SupplyExposureItem, ContingencyScenario, PlaybookTrigger } from '@/types';
+import type { MarketItem, MarketCategory, OvernightStat, ActionItem, MorningAlert, SectorId, Signal, ConflictZone, ConflictRiskLevel, SupplyExposureItem, ContingencyScenario, PlaybookTrigger, PercentileContext, SeasonalContext, ConflictIntensity } from '@/types';
+import type { HistoricalContext, CommodityPercentile, SeasonalPattern, ConflictZoneBaseline } from '@/hooks/useHistoricalContext';
+import { computePercentileRank, getPercentileLabel, getSeasonalPressure, getConflictBaseline, scoreVsBaseline } from '@/hooks/useHistoricalContext';
 
 function pct(value: number | null | undefined): number {
   return value ?? 0;
@@ -148,11 +150,65 @@ const SYMBOL_CONFIG: Record<string, {
   },
 };
 
-function quoteToMarketItem(q: YahooQuote, lastUpdated: string): MarketItem | null {
+function getSeasonalColor(pressureLabel: string): string {
+  switch (pressureLabel) {
+    case 'HIGH': return 'text-red-400';
+    case 'MODERATE': return 'text-amber-400';
+    case 'LOW': return 'text-emerald-400';
+    default: return 'text-slate-400';
+  }
+}
+
+function buildPercentileContext(
+  symbol: string,
+  price: number,
+  percentiles: CommodityPercentile[],
+): PercentileContext | undefined {
+  const perc = percentiles.find(p => p.commodity_id === symbol);
+  if (!perc) return undefined;
+  const rank = computePercentileRank(price, perc);
+  if (rank == null) return undefined;
+  const { label, color, bg } = getPercentileLabel(rank);
+  return {
+    rank,
+    label,
+    color,
+    bg,
+    median: perc.p50 ?? 0,
+    p25: perc.p25 ?? 0,
+    p75: perc.p75 ?? 0,
+    dataSource: perc.data_source,
+  };
+}
+
+function buildSeasonalContext(
+  symbol: string,
+  seasonal: SeasonalPattern[],
+): SeasonalContext | undefined {
+  const pattern = getSeasonalPressure(symbol, seasonal);
+  if (!pattern) return undefined;
+  return {
+    seasonalIndex: pattern.seasonal_index,
+    pressureLabel: pattern.pressure_label,
+    notes: pattern.notes,
+    color: getSeasonalColor(pattern.pressure_label),
+  };
+}
+
+function quoteToMarketItem(
+  q: YahooQuote,
+  lastUpdated: string,
+  percentiles?: CommodityPercentile[],
+  seasonal?: SeasonalPattern[],
+): MarketItem | null {
   const cfg = SYMBOL_CONFIG[q.symbol];
   if (!cfg || q.price == null) return null;
   const cp = pct(q.changePercent);
   const signal = signalFromChange(cp);
+
+  const percentileContext = percentiles ? buildPercentileContext(q.symbol, q.price, percentiles) : undefined;
+  const seasonalContext = seasonal ? buildSeasonalContext(q.symbol, seasonal) : undefined;
+
   return {
     id: q.symbol,
     name: cfg.name,
@@ -172,16 +228,18 @@ function quoteToMarketItem(q: YahooQuote, lastUpdated: string): MarketItem | nul
     history: [],
     category: cfg.category,
     relevantSectors: cfg.relevantSectors,
+    percentileContext,
+    seasonalContext,
   };
 }
 
-export function deriveMarketItems(feeds: FeedPayload | null): MarketItem[] {
+export function deriveMarketItems(feeds: FeedPayload | null, historicalContext?: HistoricalContext | null): MarketItem[] {
   if (!feeds) return [];
   const yahooSrc = feeds.sources.find(s => s.source_name === 'Yahoo Finance');
   if (!yahooSrc?.success || !yahooSrc.quotes?.length) return [];
   const lastUpdated = yahooSrc.fetch_time_gmt ?? feeds.fetched_at;
   return yahooSrc.quotes
-    .map(q => quoteToMarketItem(q, lastUpdated))
+    .map(q => quoteToMarketItem(q, lastUpdated, historicalContext?.percentiles, historicalContext?.seasonal))
     .filter((x): x is MarketItem => x !== null);
 }
 
@@ -606,6 +664,7 @@ function scoreConflictZone(
   config: typeof CONFLICT_ZONE_CONFIGS[0],
   allItems: { title: string; summary: string; published: string; link: string; source: string }[],
   fetchedAt: string,
+  baselines?: ConflictZoneBaseline[],
 ): ConflictZone | null {
   const matches = allItems.filter(item => {
     const text = (item.title + ' ' + item.summary).toLowerCase();
@@ -624,6 +683,26 @@ function scoreConflictZone(
   const riskLevel = riskLevels[Math.min(4, baseIdx + boost)];
 
   const best = matches[0];
+
+  let intensity: ConflictIntensity | undefined;
+  if (baselines) {
+    const baseline = getConflictBaseline(config.id, baselines);
+    if (baseline) {
+      const scored = scoreVsBaseline(matches.length, baseline);
+      const comparableEvents = baseline.comparable_events ?? [];
+      const topEvent = comparableEvents.length > 0
+        ? `${comparableEvents[0].year}: ${comparableEvents[0].event}`
+        : null;
+      intensity = {
+        vsBaseline: scored.vsBaseline,
+        label: scored.label,
+        color: scored.color,
+        historicalImpactPct: baseline.historical_commodity_impact_pct ?? null,
+        topComparableEvent: topEvent,
+      };
+    }
+  }
+
   return {
     id: config.id,
     region: config.region,
@@ -637,10 +716,11 @@ function scoreConflictZone(
     lastUpdated: best.published || fetchedAt,
     evidenceCount: matches.length,
     supplyImpact: config.supplyImpact,
+    intensity,
   };
 }
 
-export function deriveConflictZones(feeds: FeedPayload | null): ConflictZone[] {
+export function deriveConflictZones(feeds: FeedPayload | null, historicalContext?: HistoricalContext | null): ConflictZone[] {
   if (!feeds) return [];
 
   const conflictSources = ['Reuters World RSS', 'Al Jazeera RSS', 'BBC Business RSS', 'ReliefWeb Conflict RSS', 'Guardian Business RSS', 'MarketWatch RSS', 'Shipping RSS'];
@@ -656,7 +736,7 @@ export function deriveConflictZones(feeds: FeedPayload | null): ConflictZone[] {
 
   const zones: ConflictZone[] = [];
   for (const config of CONFLICT_ZONE_CONFIGS) {
-    const zone = scoreConflictZone(config, allItems, feeds.fetched_at);
+    const zone = scoreConflictZone(config, allItems, feeds.fetched_at, historicalContext?.conflictBaselines);
     if (zone) zones.push(zone);
   }
 

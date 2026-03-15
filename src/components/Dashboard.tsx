@@ -20,6 +20,7 @@ import DataFreshnessBar from './DataFreshnessBar';
 import { useMarketFeeds, getBrentFromFeeds, getFxFromFeeds } from '@/hooks/useMarketFeeds';
 import { useDailyBrief } from '@/hooks/useDailyBrief';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useHistoricalContext } from '@/hooks/useHistoricalContext';
 import { ChevronDown, ChevronUp, Shield, BarChart2, Newspaper, Filter } from 'lucide-react';
 
 const NEWS_SOURCES_LIST = [
@@ -148,11 +149,13 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
     refresh: refreshFeeds,
   } = useMarketFeeds();
 
-  const marketItems = useMemo(() => deriveMarketItems(feeds), [feeds]);
+  const { context: historicalContext } = useHistoricalContext();
+
+  const marketItems = useMemo(() => deriveMarketItems(feeds, historicalContext), [feeds, historicalContext]);
   const overnightStats = useMemo(() => deriveOvernightStats(feeds), [feeds]);
   const actionItems = useMemo(() => deriveActionItems(feeds), [feeds]);
   const morningAlerts = useMemo(() => deriveMorningAlerts(feeds), [feeds]);
-  const conflictZones = useMemo(() => deriveConflictZones(feeds), [feeds]);
+  const conflictZones = useMemo(() => deriveConflictZones(feeds, historicalContext), [feeds, historicalContext]);
   const supplyExposure = useMemo(() => deriveSupplyExposure(feeds), [feeds]);
   const contingencyPlaybooks = useMemo(() => deriveContingencyPlaybooks(feeds), [feeds]);
 

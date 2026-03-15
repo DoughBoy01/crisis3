@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Star } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Star, BarChart3, Leaf } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -12,11 +12,35 @@ interface MarketCardProps {
   activeSector?: SectorId | null;
 }
 
+function PercentileBar({ rank }: { rank: number }) {
+  return (
+    <div className="relative h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
+      <div
+        className={cn(
+          'absolute left-0 top-0 h-full rounded-full transition-all duration-500',
+          rank >= 90 ? 'bg-red-500' :
+          rank >= 75 ? 'bg-orange-500' :
+          rank >= 50 ? 'bg-amber-500' :
+          rank >= 25 ? 'bg-emerald-500' :
+          'bg-sky-500',
+        )}
+        style={{ width: `${rank}%` }}
+      />
+      <div
+        className="absolute top-0 h-full w-px bg-white/30"
+        style={{ left: '50%' }}
+      />
+    </div>
+  );
+}
+
 export default function MarketCard({ item, activeSector }: MarketCardProps) {
   const [expanded, setExpanded] = useState(false);
   const positive = item.changePercent24h >= 0;
   const isRelevant = activeSector ? item.relevantSectors.includes(activeSector) : false;
   const isDimmed = activeSector ? !isRelevant : false;
+  const perc = item.percentileContext;
+  const seasonal = item.seasonalContext;
 
   return (
     <Card
@@ -97,10 +121,53 @@ export default function MarketCard({ item, activeSector }: MarketCardProps) {
           </span>
         </div>
 
+        {/* Historical percentile bar — always visible if data available */}
+        {perc && (
+          <div className="mt-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <BarChart3 size={9} className="text-muted-foreground/50" />
+                <span className="text-[10px] text-muted-foreground/60">10-yr range</span>
+              </div>
+              <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded', perc.bg, perc.color)}>
+                {perc.rank}th pct · {perc.label}
+              </span>
+            </div>
+            <PercentileBar rank={perc.rank} />
+            <div className="flex items-center justify-between text-[9px] text-muted-foreground/35 mt-0.5">
+              <span>P25: {item.currency === 'USX' ? `${perc.p25.toFixed(0)}¢` : `$${perc.p25.toFixed(0)}`}</span>
+              <span>Median: {item.currency === 'USX' ? `${perc.median.toFixed(0)}¢` : `$${perc.median.toFixed(0)}`}</span>
+              <span>P75: {item.currency === 'USX' ? `${perc.p75.toFixed(0)}¢` : `$${perc.p75.toFixed(0)}`}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Seasonal demand pressure indicator */}
+        {seasonal && seasonal.pressureLabel !== 'NORMAL' && (
+          <div className="mt-2 flex items-start gap-1.5 rounded-md px-2 py-1.5 bg-slate-700/30 border border-slate-600/20">
+            <Leaf size={9} className={cn('shrink-0 mt-0.5', seasonal.color)} />
+            <div className="min-w-0">
+              <span className={cn('text-[10px] font-semibold', seasonal.color)}>
+                Seasonal demand: {seasonal.pressureLabel}
+              </span>
+              {seasonal.notes && (
+                <p className="text-[9px] text-muted-foreground/55 leading-relaxed mt-0.5 line-clamp-2">
+                  {seasonal.notes}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {expanded && (
           <>
             <Separator className="my-3 bg-slate-700/50" />
             <p className="text-sm text-slate-300 leading-relaxed mb-3">{item.rationale}</p>
+            {perc && (
+              <p className="text-[10px] text-muted-foreground/50 mb-3">
+                Historical context: {perc.dataSource}
+              </p>
+            )}
             <a
               href={item.sourceUrl}
               target="_blank"
