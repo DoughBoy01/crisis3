@@ -901,7 +901,7 @@ function buildHtmlEmail(
                 <td>
                   <p style="margin:0;font-size:11px;color:#334155;line-height:1.6;">
                     DawnSignal Procurement Intelligence &middot; ${meta.label}
-                    ${brief.model && brief.model !== "none" ? ` &middot; AI: ${brief.model}` : ""}
+                    ${brief.model && brief.model !== "none" ? ` &middot; DawnSignal Data Scout` : ""}
                   </p>
                 </td>
                 <td align="right" style="white-space:nowrap;">
