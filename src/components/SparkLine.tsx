@@ -1,3 +1,5 @@
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+
 interface SparkLineProps {
   data: { value: number }[];
   width?: number;
@@ -8,29 +10,35 @@ interface SparkLineProps {
 export default function SparkLine({ data, width = 96, height = 36, positive }: SparkLineProps) {
   if (data.length < 2) return null;
 
-  const values = data.map(d => d.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * height;
-    return `${x},${y}`;
-  });
-
-  const pathD = `M ${points.join(' L ')}`;
   const color = positive ? '#22c55e' : '#ef4444';
+  const gradientId = `spark-${positive ? 'pos' : 'neg'}`;
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
-      <path d={pathD} stroke={color} strokeWidth="1.5" fill="none" opacity="0.8" />
-      <circle
-        cx={parseFloat(points[points.length - 1].split(',')[0])}
-        cy={parseFloat(points[points.length - 1].split(',')[1])}
-        r="2.5"
-        fill={color}
-      />
-    </svg>
+    <div style={{ width, height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Tooltip
+            content={() => null}
+            cursor={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke={color}
+            strokeWidth={1.5}
+            fill={`url(#${gradientId})`}
+            dot={false}
+            activeDot={{ r: 2.5, fill: color, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

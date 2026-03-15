@@ -1,3 +1,4 @@
+import { ComposedChart, XAxis, YAxis, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter } from 'recharts';
 import { cn } from '@/lib/utils';
 import type { PercentileContext } from '@/types';
 
@@ -20,58 +21,58 @@ export default function PriceRangeChart({ price, perc, currency, className }: Pr
 
   const low = p25 * 0.75;
   const high = p75 * 1.25;
-  const range = high - low || 1;
 
-  function pct(v: number) {
-    return Math.max(0, Math.min(100, ((v - low) / range) * 100));
-  }
-
-  const p25Pct = pct(p25);
-  const medPct = pct(median);
-  const p75Pct = pct(p75);
-  const curPct = pct(price);
-
-  const aboveMedian = price > median;
   const dotColor = price >= p75 ? '#ef4444' : price >= median ? '#f97316' : price <= p25 ? '#38bdf8' : '#34d399';
-  const zoneColor = aboveMedian ? 'bg-orange-500/20' : 'bg-emerald-500/20';
+  const zoneColor = price > median ? 'rgba(249,115,22,0.15)' : 'rgba(52,211,153,0.12)';
+
+  const scatterData = [{ x: 0.5, y: price }];
 
   return (
-    <div className={cn('space-y-2', className)}>
-      <div className="relative h-5" style={{ userSelect: 'none' }}>
-        <div className="absolute top-[8px] left-0 right-0 h-[3px] rounded-full bg-slate-700/60" />
+    <div className={cn('space-y-1', className)}>
+      <div className="h-8">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+            <XAxis type="number" dataKey="x" domain={[0, 1]} hide />
+            <YAxis type="number" dataKey="y" domain={[low, high]} hide />
 
-        <div
-          className={cn('absolute top-[8px] h-[3px] rounded-sm', zoneColor)}
-          style={{
-            left: `${Math.min(p25Pct, curPct)}%`,
-            right: `${100 - Math.max(p75Pct, curPct)}%`,
-          }}
-        />
+            <ReferenceArea
+              y1={p25}
+              y2={p75}
+              fill={zoneColor}
+              fillOpacity={1}
+              stroke="none"
+            />
 
-        <div
-          className="absolute top-[6px] h-[7px] w-px bg-slate-500/60"
-          style={{ left: `${p25Pct}%` }}
-        />
-        <div
-          className="absolute top-[5px] h-[9px] w-px bg-slate-400/80"
-          style={{ left: `${medPct}%` }}
-        />
-        <div
-          className="absolute top-[6px] h-[7px] w-px bg-slate-500/60"
-          style={{ left: `${p75Pct}%` }}
-        />
+            <ReferenceLine y={p25} stroke="rgba(148,163,184,0.35)" strokeWidth={1} />
+            <ReferenceLine y={median} stroke="rgba(148,163,184,0.55)" strokeWidth={1} strokeDasharray="2 2" />
+            <ReferenceLine y={p75} stroke="rgba(148,163,184,0.35)" strokeWidth={1} />
+            <ReferenceLine y={price} stroke={dotColor} strokeWidth={1.5} strokeOpacity={0.7} />
 
-        <div
-          className="absolute top-[4px] w-[11px] h-[11px] rounded-full border-2 border-slate-900 shadow-sm -translate-x-1/2 transition-all duration-500"
-          style={{ left: `${curPct}%`, backgroundColor: dotColor }}
-        />
+            <Scatter
+              data={scatterData}
+              fill={dotColor}
+              line={false}
+              shape={(props: any) => {
+                const { cx, cy } = props;
+                return (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={5}
+                    fill={dotColor}
+                    stroke="#0f172a"
+                    strokeWidth={2}
+                  />
+                );
+              }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
 
       <div className="flex items-center justify-between text-[9px] text-muted-foreground/40 font-mono">
         <span>{fmt(p25, currency)}</span>
-        <div className="flex flex-col items-center gap-0.5">
-          <span className="text-muted-foreground/55">med {fmt(median, currency)}</span>
-        </div>
+        <span className="text-muted-foreground/55">med {fmt(median, currency)}</span>
         <span>{fmt(p75, currency)}</span>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { BarChart, Bar, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { cn } from '@/lib/utils';
 import type { MarketItem } from '@/types';
 
@@ -21,60 +22,70 @@ const SHORT_NAMES: Record<string, string> = {
   '^FTSE': 'FTSE',
 };
 
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: { value: number; payload: { label: string } }[];
+}
+
+function CustomTooltip({ active, payload }: CustomTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const val = payload[0].value;
+  const label = payload[0].payload.label;
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1">
+      <p className="text-[10px] text-slate-300 font-mono">
+        {label}: <span className={val >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+          {val >= 0 ? '+' : ''}{val.toFixed(2)}%
+        </span>
+      </p>
+    </div>
+  );
+}
+
 export default function CommodityMiniChart({ items, className }: CommodityMiniChartProps) {
   if (items.length === 0) return null;
 
   const sorted = [...items].sort((a, b) => b.changePercent24h - a.changePercent24h);
-  const maxAbs = Math.max(...sorted.map(i => Math.abs(i.changePercent24h)), 0.1);
+
+  const data = sorted.map(item => ({
+    label: SHORT_NAMES[item.id] ?? item.shortName,
+    value: item.changePercent24h,
+  }));
 
   return (
-    <div className={cn('space-y-1.5', className)}>
-      {sorted.map(item => {
-        const cp = item.changePercent24h;
-        const barPct = (Math.abs(cp) / maxAbs) * 100;
-        const positive = cp >= 0;
-        const label = SHORT_NAMES[item.id] ?? item.shortName;
-
-        return (
-          <div key={item.id} className="flex items-center gap-2 group">
-            <span className="text-[10px] text-muted-foreground/50 w-14 shrink-0 text-right font-mono truncate">
-              {label}
-            </span>
-
-            <div className="flex-1 flex items-center gap-1 h-4">
-              <div className="flex-1 flex items-center">
-                {positive ? (
-                  <div className="flex-1 relative h-3.5 flex items-center">
-                    <div className="absolute inset-y-0 left-1/2 w-px bg-slate-700/60" />
-                    <div
-                      className="absolute inset-y-[3px] left-1/2 rounded-r bg-emerald-500/70 group-hover:bg-emerald-400/80 transition-colors"
-                      style={{ width: `${barPct / 2}%` }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex-1 relative h-3.5 flex items-center">
-                    <div className="absolute inset-y-0 left-1/2 w-px bg-slate-700/60" />
-                    <div
-                      className="absolute inset-y-[3px] rounded-l bg-red-500/70 group-hover:bg-red-400/80 transition-colors"
-                      style={{
-                        right: '50%',
-                        width: `${barPct / 2}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <span className={cn(
-              'text-[10px] font-mono w-12 shrink-0 text-right font-semibold',
-              positive ? 'text-emerald-400' : 'text-red-400',
-            )}>
-              {positive ? '+' : ''}{cp.toFixed(2)}%
-            </span>
-          </div>
-        );
-      })}
+    <div className={cn('w-full', className)}>
+      <ResponsiveContainer width="100%" height={sorted.length * 22}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 0, right: 4, bottom: 0, left: 44 }}
+          barSize={8}
+        >
+          <XAxis
+            type="number"
+            domain={['auto', 'auto']}
+            hide
+          />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={40}
+            tick={{ fontSize: 10, fill: 'rgba(148,163,184,0.5)', fontFamily: 'monospace' }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <ReferenceLine x={0} stroke="rgba(148,163,184,0.2)" strokeWidth={1} />
+          <Bar dataKey="value" radius={[0, 2, 2, 0]} isAnimationActive={false}>
+            {data.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={entry.value >= 0 ? 'rgba(52,211,153,0.7)' : 'rgba(239,68,68,0.7)'}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
