@@ -336,6 +336,12 @@ function buildPrompt(
   lines.push(newsSection);
   lines.push("");
   lines.push("=== YOUR TASK ===");
+  lines.push("CRITICAL RULES FOR action_rationale:");
+  lines.push("- Only write a value for a sector if you have ACTUAL data for it: a real price move with a non-zero percentage change, OR a news headline directly about that sector from the news feeds above.");
+  lines.push("- If you have no price move data AND no relevant news headline for a sector, return an EMPTY STRING \"\" for that sector. DO NOT write filler phrases like 'No significant overnight movements reported' or 'Quiet overnight'. Leave it blank.");
+  lines.push("- A price that is unchanged (0.00% change) with no related news = empty string.");
+  lines.push("- Only include geopolitical_context if there is a specific named conflict or policy event in the news feeds above. Otherwise return empty string.");
+  lines.push("");
   lines.push("Return ONLY valid JSON with this exact structure:");
   lines.push(JSON.stringify({
     narrative: "2-4 sentence plain-English summary of what happened overnight. Lead with the biggest market move or geopolitical development. Reference historical percentile position if relevant. Reference whether conflict news represents escalation above baseline norms.",
@@ -344,15 +350,15 @@ function buildPrompt(
       "Second most important thing (max 20 words)",
       "Third most important thing (max 20 words)"
     ],
-    geopolitical_context: "1-3 sentences on geopolitical developments affecting commodity supply chains. Reference specific conflict zones and whether activity is elevated above historical baselines. Only include if genuinely relevant.",
+    geopolitical_context: "1-3 sentences on geopolitical developments affecting commodity supply chains. Reference specific conflict zones and whether activity is elevated above historical baselines. EMPTY STRING if no specific geopolitical event in the news feeds.",
     action_rationale: {
-      "energy": "What energy markets (Brent, WTI, Nat Gas, Heating Oil, Gasoline) did overnight and why it matters for procurement. Include historical percentile context if extreme.",
-      "agricultural": "What grain/oilseed markets (Wheat, Corn, Soybeans, Rice) did overnight and why it matters. Note USDA/World Grain reports and seasonal demand pressure if active.",
-      "freight": "What freight/shipping markets (BDI, container rates, tanker routes) did overnight and why it matters. Note any Red Sea/Hormuz disruption signals from Shipping and Freight RSS.",
-      "fertilizer": "What fertilizer inputs (urea, DAP, ammonia, potash, nitrogen) did overnight and why it matters. Reference specific products from Fertilizer RSS if available. Note spring/autumn application season pressure.",
-      "metals": "What metals markets (Gold, Silver, Copper) did overnight and what it signals. Gold/Silver rising = risk-off/inflation hedge. Copper falling = demand slowdown signal. Note LME/COMEX news from Metals RSS.",
-      "fx": "What GBP moves mean for import costs today. Reference BoE/OBR policy signals if any monetary policy news emerged overnight.",
-      "policy": "Any Bank of England, OBR, or fiscal policy developments overnight that affect procurement costs, inflation outlook, or GBP. Only include if genuinely relevant — omit if no policy news."
+      "energy": "ONLY if Brent, WTI, Nat Gas, Heating Oil, or Gasoline moved meaningfully overnight OR energy headlines appeared in feeds: write what happened and why it matters for procurement. Include historical percentile context if extreme. EMPTY STRING if no data.",
+      "agricultural": "ONLY if Wheat, Corn, Soybeans, or Rice moved meaningfully OR USDA/World Grain/Farmers Weekly headlines appeared: write what happened and why it matters. EMPTY STRING if no data.",
+      "freight": "ONLY if BDI, container rates, or shipping headlines appeared in Shipping/Freight RSS: write what happened and why it matters. EMPTY STRING if no data.",
+      "fertilizer": "ONLY if urea, DAP, ammonia, potash, or nitrogen products were mentioned in Fertilizer RSS OR had a price move: write what happened. EMPTY STRING if no data.",
+      "metals": "ONLY if Gold, Silver, or Copper moved meaningfully (>0.3%) OR metals headlines appeared in Metals RSS: write what it signals. EMPTY STRING if no data.",
+      "fx": "ONLY if GBP/USD or GBP/EUR moved by at least 0.1% OR Bank of England/OBR news appeared: write what the move means for import costs. EMPTY STRING if FX was flat and no policy news.",
+      "policy": "ONLY if Bank of England, OBR, or fiscal policy news explicitly appeared in the feeds above: write what it means for procurement. EMPTY STRING if no policy news."
     }
   }));
 
