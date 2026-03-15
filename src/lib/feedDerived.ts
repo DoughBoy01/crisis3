@@ -67,6 +67,24 @@ const SYMBOL_CONFIG: Record<string, {
     relevantSectors: ['chemicals', 'food_importer', 'construction', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
+  'HO=F': {
+    name: 'Heating Oil (NYMEX)',
+    shortName: 'Heating Oil',
+    category: 'energy',
+    unit: 'gal',
+    currency: 'USD',
+    relevantSectors: ['chemicals', 'freight_3pl', 'construction', 'financial'],
+    sourceUrl: 'https://www.cmegroup.com/',
+  },
+  'RB=F': {
+    name: 'RBOB Gasoline',
+    shortName: 'Gasoline',
+    category: 'energy',
+    unit: 'gal',
+    currency: 'USD',
+    relevantSectors: ['freight_3pl', 'construction', 'food_importer', 'financial'],
+    sourceUrl: 'https://www.cmegroup.com/',
+  },
   'ZW=F': {
     name: 'Wheat (CBOT)',
     shortName: 'Wheat',
@@ -94,6 +112,15 @@ const SYMBOL_CONFIG: Record<string, {
     relevantSectors: ['food_importer', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
+  'ZR=F': {
+    name: 'Rough Rice (CBOT)',
+    shortName: 'Rough Rice',
+    category: 'agricultural',
+    unit: 'cwt',
+    currency: 'USX',
+    relevantSectors: ['food_importer', 'financial'],
+    sourceUrl: 'https://www.cmegroup.com/',
+  },
   'GC=F': {
     name: 'Gold',
     shortName: 'Gold',
@@ -101,6 +128,24 @@ const SYMBOL_CONFIG: Record<string, {
     unit: 'oz',
     currency: 'USD',
     relevantSectors: ['financial'],
+    sourceUrl: 'https://www.cmegroup.com/',
+  },
+  'SI=F': {
+    name: 'Silver',
+    shortName: 'Silver',
+    category: 'metals',
+    unit: 'oz',
+    currency: 'USD',
+    relevantSectors: ['financial', 'construction'],
+    sourceUrl: 'https://www.cmegroup.com/',
+  },
+  'HG=F': {
+    name: 'Copper',
+    shortName: 'Copper',
+    category: 'metals',
+    unit: 'lb',
+    currency: 'USX',
+    relevantSectors: ['construction', 'chemicals', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
   'DX=F': {
@@ -130,6 +175,33 @@ const SYMBOL_CONFIG: Record<string, {
     relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'construction', 'financial'],
     sourceUrl: 'https://www.bankofengland.co.uk/',
   },
+  'EURUSD=X': {
+    name: 'EUR/USD',
+    shortName: 'EUR/USD',
+    category: 'fx',
+    unit: '',
+    currency: 'USD',
+    relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'financial'],
+    sourceUrl: 'https://www.ecb.europa.eu/',
+  },
+  'USDJPY=X': {
+    name: 'USD/JPY',
+    shortName: 'USD/JPY',
+    category: 'fx',
+    unit: '',
+    currency: 'JPY',
+    relevantSectors: ['financial'],
+    sourceUrl: 'https://www.boj.or.jp/',
+  },
+  'USDCNH=X': {
+    name: 'USD/CNH (Offshore Yuan)',
+    shortName: 'USD/CNH',
+    category: 'fx',
+    unit: '',
+    currency: 'CNH',
+    relevantSectors: ['freight_3pl', 'food_importer', 'financial'],
+    sourceUrl: 'https://www.pbc.gov.cn/',
+  },
   '^GSPC': {
     name: 'S&P 500',
     shortName: 'S&P 500',
@@ -147,6 +219,24 @@ const SYMBOL_CONFIG: Record<string, {
     currency: 'GBp',
     relevantSectors: ['financial'],
     sourceUrl: 'https://www.londonstockexchange.com/',
+  },
+  '^GDAXI': {
+    name: 'DAX 40',
+    shortName: 'DAX 40',
+    category: 'metals',
+    unit: 'pts',
+    currency: 'EUR',
+    relevantSectors: ['financial'],
+    sourceUrl: 'https://www.deutsche-boerse.com/',
+  },
+  'BDI': {
+    name: 'Baltic Dry Index',
+    shortName: 'Baltic Dry',
+    category: 'freight',
+    unit: 'pts',
+    currency: 'pts',
+    relevantSectors: ['freight_3pl', 'food_importer', 'construction', 'financial'],
+    sourceUrl: 'https://www.balticexchange.com/',
   },
 };
 
@@ -245,16 +335,27 @@ export function deriveMarketItems(feeds: FeedPayload | null, historicalContext?:
 
 const OVERNIGHT_SYMBOL_DISPLAY: { symbol: string; label: string; priceFmt: (p: number) => string }[] = [
   { symbol: 'BZ=F',     label: 'Brent Crude',  priceFmt: p => `$${fmt(p, 2)}` },
+  { symbol: 'CL=F',     label: 'WTI Crude',    priceFmt: p => `$${fmt(p, 2)}` },
   { symbol: 'NG=F',     label: 'Nat. Gas',     priceFmt: p => `$${fmt(p, 3)}` },
+  { symbol: 'HO=F',     label: 'Heating Oil',  priceFmt: p => `$${fmt(p, 4)}` },
+  { symbol: 'RB=F',     label: 'Gasoline',     priceFmt: p => `$${fmt(p, 4)}` },
   { symbol: 'ZW=F',     label: 'Wheat',        priceFmt: p => `${fmt(p, 0)}¢` },
   { symbol: 'ZC=F',     label: 'Corn',         priceFmt: p => `${fmt(p, 0)}¢` },
   { symbol: 'ZS=F',     label: 'Soybeans',     priceFmt: p => `${fmt(p, 0)}¢` },
+  { symbol: 'ZR=F',     label: 'Rough Rice',   priceFmt: p => `${fmt(p, 2)}` },
   { symbol: 'GC=F',     label: 'Gold',         priceFmt: p => `$${fmt(p, 0)}` },
+  { symbol: 'SI=F',     label: 'Silver',       priceFmt: p => `$${fmt(p, 2)}` },
+  { symbol: 'HG=F',     label: 'Copper',       priceFmt: p => `${fmt(p, 2)}¢` },
   { symbol: 'GBPUSD=X', label: 'GBP/USD',      priceFmt: p => fmt(p, 4) },
   { symbol: 'GBPEUR=X', label: 'GBP/EUR',      priceFmt: p => fmt(p, 4) },
+  { symbol: 'EURUSD=X', label: 'EUR/USD',      priceFmt: p => fmt(p, 4) },
+  { symbol: 'USDJPY=X', label: 'USD/JPY',      priceFmt: p => fmt(p, 2) },
+  { symbol: 'USDCNH=X', label: 'USD/CNH',      priceFmt: p => fmt(p, 4) },
   { symbol: '^FTSE',    label: 'FTSE 100',     priceFmt: p => `${fmt(p, 0)}` },
   { symbol: '^GSPC',    label: 'S&P 500',      priceFmt: p => `${fmt(p, 0)}` },
+  { symbol: '^GDAXI',   label: 'DAX 40',       priceFmt: p => `${fmt(p, 0)}` },
   { symbol: 'DX=F',     label: 'USD Index',    priceFmt: p => fmt(p, 2) },
+  { symbol: 'BDI',      label: 'Baltic Dry',   priceFmt: p => `${fmt(p, 0)}` },
 ];
 
 export function deriveOvernightStats(feeds: FeedPayload | null): OvernightStat[] {
@@ -588,6 +689,11 @@ export function deriveMorningAlerts(feeds: FeedPayload | null): MorningAlert[] {
     'Guardian Business RSS',
     'MarketWatch RSS',
     'Financial Times RSS',
+    'Rigzone RSS',
+    'World Grain RSS',
+    'Fertilizer RSS',
+    'Freight Rates RSS',
+    'Metals RSS',
   ];
 
   const criticalKeywords = ['war', 'attack', 'explosion', 'sanctions', 'conflict', 'strike', 'blockade', 'tanker attacked', 'hormuz', 'red sea', 'surge', 'spike', 'shortage', 'crisis', 'ban', 'tariff'];
@@ -762,7 +868,7 @@ function scoreConflictZone(
 export function deriveConflictZones(feeds: FeedPayload | null, historicalContext?: HistoricalContext | null): ConflictZone[] {
   if (!feeds) return [];
 
-  const conflictSources = ['Reuters World RSS', 'Al Jazeera RSS', 'BBC Business RSS', 'ReliefWeb Conflict RSS', 'Guardian Business RSS', 'MarketWatch RSS', 'Shipping RSS'];
+  const conflictSources = ['Reuters World RSS', 'Al Jazeera RSS', 'BBC Business RSS', 'ReliefWeb Conflict RSS', 'Guardian Business RSS', 'MarketWatch RSS', 'Shipping RSS', 'Rigzone RSS', 'Freight Rates RSS'];
   const allItems: { title: string; summary: string; published: string; link: string; source: string }[] = [];
 
   for (const srcName of conflictSources) {

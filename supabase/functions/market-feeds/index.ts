@@ -140,16 +140,25 @@ async function fetchYahooFinance(): Promise<Record<string, unknown>> {
     { symbol: "BZ=F",     stooq: "cb.f",      label: "Brent Crude Oil (ICE)",  currency: "USD" },
     { symbol: "CL=F",     stooq: "cl.f",      label: "WTI Crude Oil",           currency: "USD" },
     { symbol: "NG=F",     stooq: "ng.f",      label: "Natural Gas (NYMEX)",     currency: "USD" },
+    { symbol: "HO=F",     stooq: "ho.f",      label: "Heating Oil (NYMEX)",     currency: "USD" },
+    { symbol: "RB=F",     stooq: "rb.f",      label: "RBOB Gasoline",           currency: "USD" },
     { symbol: "GBPUSD=X", stooq: "gbpusd",    label: "GBP/USD",                 currency: "USD" },
     { symbol: "GBPEUR=X", stooq: "gbpeur",    label: "GBP/EUR",                 currency: "EUR" },
     { symbol: "EURUSD=X", stooq: "eurusd",    label: "EUR/USD",                 currency: "USD" },
+    { symbol: "USDJPY=X", stooq: "usdjpy",    label: "USD/JPY",                 currency: "JPY" },
+    { symbol: "USDCNH=X", stooq: "usdcnh",    label: "USD/CNH",                 currency: "CNH" },
     { symbol: "ZW=F",     stooq: "zw.f",      label: "Wheat (CBOT)",            currency: "USX" },
     { symbol: "ZC=F",     stooq: "zc.f",      label: "Corn (CBOT)",             currency: "USX" },
     { symbol: "ZS=F",     stooq: "zs.f",      label: "Soybeans (CBOT)",         currency: "USX" },
+    { symbol: "ZR=F",     stooq: "rr.f",      label: "Rough Rice (CBOT)",       currency: "USX" },
     { symbol: "GC=F",     stooq: "gc.f",      label: "Gold",                    currency: "USD" },
+    { symbol: "SI=F",     stooq: "si.f",      label: "Silver",                  currency: "USD" },
+    { symbol: "HG=F",     stooq: "hg.f",      label: "Copper",                  currency: "USX" },
     { symbol: "DX=F",     stooq: "dx.f",      label: "US Dollar Index",         currency: "USD" },
     { symbol: "^GSPC",    stooq: "^spx",      label: "S&P 500",                 currency: "USD" },
     { symbol: "^FTSE",    stooq: "^ftse",     label: "FTSE 100",                currency: "GBp" },
+    { symbol: "^GDAXI",   stooq: "^dax",      label: "DAX 40",                  currency: "EUR" },
+    { symbol: "BDI",      stooq: "bdi.i",     label: "Baltic Dry Index",        currency: "pts" },
   ];
 
   try {
@@ -771,6 +780,205 @@ async function fetchShippingRSS(): Promise<Record<string, unknown>> {
   return { source_name: "Shipping RSS", success: false, error: lastError, fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
 }
 
+async function fetchRigzoneRSS(): Promise<Record<string, unknown>> {
+  const fetchTime = nowISO();
+  const keywords = ["oil", "gas", "lng", "crude", "brent", "opec", "rig", "offshore", "pipeline", "refinery", "tanker", "energy", "drilling", "production", "supply"];
+  const urls = [
+    "https://www.rigzone.com/news/rss/rigzone_latest.aspx",
+    "https://www.offshore-technology.com/feed/",
+    "https://oilprice.com/rss/main",
+  ];
+  let lastError = "All Rigzone/oil industry RSS URLs failed";
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) { lastError = `HTTP ${res.status} from ${url}`; continue; }
+      const xml = await res.text();
+      const all = parseRSS(xml);
+      if (all.length === 0) { lastError = `No items from ${url}`; continue; }
+      const filtered = filterByKeywords(all, keywords).slice(0, 6);
+      const items = filtered.length > 0 ? filtered : all.slice(0, 5);
+      const newestPub = items[0]?.published ?? null;
+      const dataAge = newestPub ? Math.round((Date.now() - new Date(newestPub).getTime()) / 60000) : null;
+      const fetchAge = ageMinutes(fetchTime);
+      return {
+        source_name: "Rigzone RSS",
+        success: true,
+        error: null,
+        fetch_time_gmt: fetchTime,
+        items,
+        newest_item_published: newestPub,
+        data_age_minutes: dataAge ?? fetchAge,
+        accuracy_score: feedAccuracyScore(fetchAge, dataAge, 480, true),
+        note: `Oil & gas industry news — upstream production and supply signals (via ${url})`,
+      };
+    } catch (e) {
+      lastError = String(e);
+    }
+  }
+  return { source_name: "Rigzone RSS", success: false, error: lastError, fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
+}
+
+async function fetchWorldGrainRSS(): Promise<Record<string, unknown>> {
+  const fetchTime = nowISO();
+  const keywords = ["wheat", "corn", "grain", "soybean", "rice", "barley", "oat", "crop", "harvest", "export", "import", "supply", "demand", "price", "ukraine", "russia", "usda", "fao"];
+  const urls = [
+    "https://www.world-grain.com/rss/news",
+    "https://www.world-grain.com/feed/",
+    "https://agfax.com/feed/",
+    "https://www.farmdocdaily.illinois.edu/feed",
+  ];
+  let lastError = "All World Grain RSS URLs failed";
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) { lastError = `HTTP ${res.status} from ${url}`; continue; }
+      const xml = await res.text();
+      const all = parseRSS(xml);
+      if (all.length === 0) { lastError = `No items from ${url}`; continue; }
+      const filtered = filterByKeywords(all, keywords).slice(0, 6);
+      const items = filtered.length > 0 ? filtered : all.slice(0, 5);
+      const newestPub = items[0]?.published ?? null;
+      const dataAge = newestPub ? Math.round((Date.now() - new Date(newestPub).getTime()) / 60000) : null;
+      const fetchAge = ageMinutes(fetchTime);
+      return {
+        source_name: "World Grain RSS",
+        success: true,
+        error: null,
+        fetch_time_gmt: fetchTime,
+        items,
+        newest_item_published: newestPub,
+        data_age_minutes: dataAge ?? fetchAge,
+        accuracy_score: feedAccuracyScore(fetchAge, dataAge, 1440, true),
+        note: `Global grain market intelligence (via ${url})`,
+      };
+    } catch (e) {
+      lastError = String(e);
+    }
+  }
+  return { source_name: "World Grain RSS", success: false, error: lastError, fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
+}
+
+async function fetchFertilizerRSS(): Promise<Record<string, unknown>> {
+  const fetchTime = nowISO();
+  const keywords = ["fertilizer", "fertiliser", "urea", "ammonia", "nitrogen", "potash", "phosphate", "dap", "map", "npk", "crop input", "agrochemical", "natural gas", "feedstock", "price", "supply", "sanction", "russia", "belarus"];
+  const urls = [
+    "https://www.fertilizerweek.com/rss",
+    "https://www.icis.com/explore/resources/news/rss/",
+    "https://www.agweb.com/feed",
+    "https://www.profercy.com/rss/",
+  ];
+  let lastError = "All fertilizer RSS URLs failed";
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) { lastError = `HTTP ${res.status} from ${url}`; continue; }
+      const xml = await res.text();
+      const all = parseRSS(xml);
+      if (all.length === 0) { lastError = `No items from ${url}`; continue; }
+      const filtered = filterByKeywords(all, keywords).slice(0, 6);
+      const items = filtered.length > 0 ? filtered : all.slice(0, 5);
+      const newestPub = items[0]?.published ?? null;
+      const dataAge = newestPub ? Math.round((Date.now() - new Date(newestPub).getTime()) / 60000) : null;
+      const fetchAge = ageMinutes(fetchTime);
+      return {
+        source_name: "Fertilizer RSS",
+        success: true,
+        error: null,
+        fetch_time_gmt: fetchTime,
+        items,
+        newest_item_published: newestPub,
+        data_age_minutes: dataAge ?? fetchAge,
+        accuracy_score: feedAccuracyScore(fetchAge, dataAge, 1440, true),
+        note: `Fertilizer and crop input market news (via ${url})`,
+      };
+    } catch (e) {
+      lastError = String(e);
+    }
+  }
+  return { source_name: "Fertilizer RSS", success: false, error: lastError, fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
+}
+
+async function fetchFreightRatesRSS(): Promise<Record<string, unknown>> {
+  const fetchTime = nowISO();
+  const keywords = ["baltic", "bdi", "dry bulk", "capesize", "panamax", "supramax", "handysize", "container", "freight rate", "spot rate", "bunker", "port congestion", "vessel", "charter", "drewry", "xeneta"];
+  const urls = [
+    "https://www.hellenicshippingnews.com/feed/",
+    "https://gcaptain.com/feed/",
+    "https://splash247.com/feed/",
+    "https://www.maritimeexecutive.com/rss",
+  ];
+  let lastError = "All freight rates RSS URLs failed";
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) { lastError = `HTTP ${res.status} from ${url}`; continue; }
+      const xml = await res.text();
+      const all = parseRSS(xml);
+      if (all.length === 0) { lastError = `No items from ${url}`; continue; }
+      const filtered = filterByKeywords(all, keywords).slice(0, 6);
+      const items = filtered.length > 0 ? filtered : all.slice(0, 5);
+      const newestPub = items[0]?.published ?? null;
+      const dataAge = newestPub ? Math.round((Date.now() - new Date(newestPub).getTime()) / 60000) : null;
+      const fetchAge = ageMinutes(fetchTime);
+      return {
+        source_name: "Freight Rates RSS",
+        success: true,
+        error: null,
+        fetch_time_gmt: fetchTime,
+        items,
+        newest_item_published: newestPub,
+        data_age_minutes: dataAge ?? fetchAge,
+        accuracy_score: feedAccuracyScore(fetchAge, dataAge, 480, true),
+        note: `Baltic Exchange, container rates, and freight market intelligence (via ${url})`,
+      };
+    } catch (e) {
+      lastError = String(e);
+    }
+  }
+  return { source_name: "Freight Rates RSS", success: false, error: lastError, fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
+}
+
+async function fetchMetalsRSS(): Promise<Record<string, unknown>> {
+  const fetchTime = nowISO();
+  const keywords = ["copper", "silver", "gold", "aluminium", "aluminum", "steel", "iron ore", "nickel", "zinc", "lme", "comex", "base metal", "precious metal", "mining", "smelter", "supply", "demand", "china", "construction"];
+  const urls = [
+    "https://www.mining.com/feed/",
+    "https://www.metalbulletin.com/rss/",
+    "https://www.kitco.com/rss/news.xml",
+    "https://www.mining-technology.com/feed/",
+  ];
+  let lastError = "All metals RSS URLs failed";
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) { lastError = `HTTP ${res.status} from ${url}`; continue; }
+      const xml = await res.text();
+      const all = parseRSS(xml);
+      if (all.length === 0) { lastError = `No items from ${url}`; continue; }
+      const filtered = filterByKeywords(all, keywords).slice(0, 6);
+      const items = filtered.length > 0 ? filtered : all.slice(0, 5);
+      const newestPub = items[0]?.published ?? null;
+      const dataAge = newestPub ? Math.round((Date.now() - new Date(newestPub).getTime()) / 60000) : null;
+      const fetchAge = ageMinutes(fetchTime);
+      return {
+        source_name: "Metals RSS",
+        success: true,
+        error: null,
+        fetch_time_gmt: fetchTime,
+        items,
+        newest_item_published: newestPub,
+        data_age_minutes: dataAge ?? fetchAge,
+        accuracy_score: feedAccuracyScore(fetchAge, dataAge, 480, true),
+        note: `Metals and mining market intelligence — copper, silver, base metals (via ${url})`,
+      };
+    } catch (e) {
+      lastError = String(e);
+    }
+  }
+  return { source_name: "Metals RSS", success: false, error: lastError, fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
+}
+
 function computeOverallAccuracy(sources: Record<string, unknown>[]): number {
   const successfulScores = sources
     .filter(s => s.success === true)
@@ -809,6 +1017,11 @@ Deno.serve(async (req: Request) => {
       fetchReutersCommoditiesRSS(),
       fetchReliefWebRSS(),
       fetchShippingRSS(),
+      fetchRigzoneRSS(),
+      fetchWorldGrainRSS(),
+      fetchFertilizerRSS(),
+      fetchFreightRatesRSS(),
+      fetchMetalsRSS(),
     ]);
 
     const rawSources = results.map(r =>
