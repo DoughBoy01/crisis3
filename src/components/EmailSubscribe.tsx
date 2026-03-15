@@ -110,7 +110,7 @@ export default function EmailSubscribe({ variant = 'header' }: EmailSubscribePro
   return (
     <>
       {variant === 'hero' ? (
-        <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto justify-center items-center">
           <button
             onClick={() => setOpen(true)}
             className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-sky-500/20 hover:shadow-sky-400/25 w-full sm:w-auto"
