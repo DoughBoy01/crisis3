@@ -44,6 +44,16 @@ interface FeedPayload {
   sources_total: number;
 }
 
+interface TopDecision {
+  signal: "BUY" | "HOLD" | "ACT" | "WATCH";
+  headline: string;
+  deadline: string;
+  market: string;
+  gbp_impact: string;
+  rationale: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+}
+
 interface DailyBrief {
   id: string;
   brief_date: string;
@@ -59,6 +69,7 @@ interface DailyBrief {
   sector_news_digest: Record<string, string[]>;
   sector_forward_outlook: Record<string, string>;
   compounding_risk: string;
+  top_decision: TopDecision | null;
   model: string;
   prompt_tokens: number | null;
   completion_tokens: number | null;
@@ -99,6 +110,7 @@ const PERSONA_CONFIG: Record<PersonaId, {
   supportingSectors: string[];
   focusDescription: string;
   actionVerb: string;
+  topDecisionMarkets: string;
 }> = {
   general: {
     label: "Business Overview",
@@ -107,6 +119,7 @@ const PERSONA_CONFIG: Record<PersonaId, {
     supportingSectors: ["freight", "agricultural", "fertilizer", "metals", "policy"],
     focusDescription: "plain-English cost and supply impact for a UK business — what this means in pounds, not market jargon",
     actionVerb: "business cost",
+    topDecisionMarkets: "energy (diesel/gas), FX (GBP/USD import costs), freight surcharges",
   },
   trader: {
     label: "Commodity Trader",
@@ -115,6 +128,7 @@ const PERSONA_CONFIG: Record<PersonaId, {
     supportingSectors: ["agricultural", "freight", "fertilizer", "policy"],
     focusDescription: "price signals, momentum, risk-off sentiment, and market timing — specific levels, not generalities",
     actionVerb: "trading",
+    topDecisionMarkets: "energy futures, FX positions, metals (gold/copper), agricultural futures",
   },
   agri: {
     label: "Agri Buyer",
@@ -123,6 +137,7 @@ const PERSONA_CONFIG: Record<PersonaId, {
     supportingSectors: ["energy", "fx", "freight"],
     focusDescription: "grain input costs, fertilizer product moves (urea/DAP/ammonia/potash), Black Sea corridor risk, and planting economics",
     actionVerb: "procurement",
+    topDecisionMarkets: "wheat (CBOT/LIFFE), corn, urea/DAP fertilizer, Black Sea freight",
   },
   logistics: {
     label: "Logistics Director",
@@ -131,6 +146,7 @@ const PERSONA_CONFIG: Record<PersonaId, {
     supportingSectors: ["fx", "policy"],
     focusDescription: "shipping lane status (Red Sea/Suez/Cape Horn rerouting), BDI moves, bunker costs, and estimated landed cost impacts",
     actionVerb: "logistics",
+    topDecisionMarkets: "bunker fuel (Brent proxy), freight contracts (BDI), Red Sea surcharges, rerouting decisions",
   },
   analyst: {
     label: "Risk Analyst",
@@ -139,6 +155,7 @@ const PERSONA_CONFIG: Record<PersonaId, {
     supportingSectors: [],
     focusDescription: "full cross-sector analysis with citable sources, historical percentile context, and scenario framing for client reporting",
     actionVerb: "risk",
+    topDecisionMarkets: "the highest-conviction cross-sector signal (energy + FX + freight compounding, or single dominant move)",
   },
 };
 
@@ -310,8 +327,9 @@ function buildPriceMovesSection(feeds: FeedPayload): string {
     prices.push(`Brent Crude (EIA): $${brentSrc.current_price.toFixed(2)}/bbl (${dir}${pct.toFixed(2)}%) [${tier}]`);
   }
   const fxSrc = feeds.sources.find(s => s.source_name === "ExchangeRate.host FX");
-  const yahooGbpUsd = yahooPrices?.quotes?.find(q => q.symbol === "GBPUSD=X");
-  const yahooGbpEur = yahooPrices?.quotes?.find(q => q.symbol === "GBPEUR=X");
+  const yahooPricesRef = feeds.sources.find(s => s.source_name === "Yahoo Finance" || s.source_name === "Stooq Market Data");
+  const yahooGbpUsd = yahooPricesRef?.quotes?.find(q => q.symbol === "GBPUSD=X");
+  const yahooGbpEur = yahooPricesRef?.quotes?.find(q => q.symbol === "GBPEUR=X");
   if (fxSrc?.success) {
     if (fxSrc.gbp_usd && !yahooGbpUsd?.changePercent) {
       prices.push(`GBP/USD (spot): ${(fxSrc.gbp_usd as number).toFixed(4)} — no overnight change from this source`);
@@ -421,6 +439,28 @@ function buildPersonaPrompt(
   lines.push(`- For ${cfg.actionVerb} implications, be specific: name the exact input cost impact in £/unit`);
   lines.push("- For FX, always state the import cost implication explicitly");
   lines.push("");
+
+  lines.push("=== CRITICAL: top_decision — THE SINGLE MOST IMPORTANT OUTPUT ===");
+  lines.push("This is the ONE decision this reader must make today. It appears in large text at the top of their email.");
+  lines.push("It must be specific, time-bound, and expressed in £ terms relevant to their role.");
+  lines.push(`RELEVANT MARKETS FOR THIS PERSONA: ${cfg.topDecisionMarkets}`);
+  lines.push("");
+  lines.push("RULES FOR top_decision:");
+  lines.push("- signal: Must be exactly one of: BUY (act now to lock in lower price), HOLD (do nothing, wait), ACT (take defensive/risk action urgently), WATCH (monitor closely before deciding)");
+  lines.push("- headline: Max 12 words. Imperative. Specific. E.g.: 'Lock in diesel before Friday open — Brent +2.1% overnight'");
+  lines.push("- deadline: Specific time. E.g.: 'before 09:30 UK', 'before London close', 'within 24 hours', 'this week'");
+  lines.push("- market: The specific commodity, instrument, or contract. E.g.: 'Brent Crude / Diesel', 'CBOT Wheat', 'GBP/USD'");
+  lines.push("- gbp_impact: Quantify the £ exposure using realistic reference volumes for this persona.");
+  lines.push("  Examples: 'Est. £8,400 cost increase on 50,000L diesel order', 'Wheat: ~£14/tonne input cost rise on 1,000t order',");
+  lines.push("  'Freight: ~£2,100 surcharge per container on Red Sea reroute', 'FX: ~0.4% uplift on all USD-denominated imports'");
+  lines.push("- rationale: 1-2 sentences citing the specific price move, headline, and/or historical context that drives this decision");
+  lines.push("- confidence: HIGH (clear signal, multiple confirming sources), MEDIUM (one clear signal), LOW (ambiguous, watch only)");
+  lines.push("");
+  lines.push("IF the overnight session was genuinely flat across all relevant markets (all moves <0.3%, no conflict escalation,");
+  lines.push("no supply chain news), THEN set signal='HOLD', headline='Markets flat overnight — no procurement action required',");
+  lines.push("deadline='Hold positions', gbp_impact='No material cost change overnight', confidence='HIGH'");
+  lines.push("");
+
   lines.push("CRITICAL RULES FOR action_rationale:");
   lines.push(`- PRIMARY sectors (${cfg.primarySectors.join(", ")}): write 3-5 full sentences when data exists`);
   if (cfg.supportingSectors.length > 0) {
@@ -464,6 +504,15 @@ function buildPersonaPrompt(
 
   lines.push("Return ONLY valid JSON:");
   lines.push(JSON.stringify({
+    top_decision: {
+      signal: "BUY | HOLD | ACT | WATCH",
+      headline: `Max 12 words. Imperative. Specific to a ${cfg.label}.`,
+      deadline: "Specific time constraint e.g. 'before 09:30 UK' or 'within 24 hours'",
+      market: `The specific instrument relevant to a ${cfg.label}`,
+      gbp_impact: `Quantified £ exposure using realistic volumes for a ${cfg.label}`,
+      rationale: `1-2 sentences citing specific price data and/or headline that drives this decision for a ${cfg.label}`,
+      confidence: "HIGH | MEDIUM | LOW",
+    },
     narrative: `3-5 sentence summary written specifically for a ${cfg.label}. Lead with the single biggest development RELEVANT TO THIS READER. Include exact prices and % changes. State whether conflict news represents escalation above baseline. End with the net ${cfg.actionVerb} implication for today.`,
     three_things: [
       `Most important thing for a ${cfg.label} today — data point + ${cfg.actionVerb} implication + context. 2-3 sentences. Self-contained.`,
@@ -564,7 +613,7 @@ async function generateBriefForPersona(
       messages: [
         {
           role: "system",
-          content: `You are a terse, expert procurement intelligence analyst writing a personalised morning brief for a ${PERSONA_CONFIG[persona].role}. You have access to price data, news from 19 sources, historical percentile context, seasonal patterns, and conflict zone baselines. Your analysis must be written for THIS SPECIFIC READER — not a generic audience. Return only valid JSON.`,
+          content: `You are a terse, expert procurement intelligence analyst writing a personalised morning brief for a ${PERSONA_CONFIG[persona].role}. You have access to price data, news from 19 sources, historical percentile context, seasonal patterns, and conflict zone baselines. Your analysis must be written for THIS SPECIFIC READER — not a generic audience. The top_decision field is the single most important output — it is the first thing the reader sees in their email. Return only valid JSON.`,
         },
         { role: "user", content: prompt },
       ],
@@ -582,11 +631,25 @@ async function generateBriefForPersona(
   let parsed: Record<string, unknown> = {};
   try { parsed = JSON.parse(rawContent); } catch { parsed = {}; }
 
+  const topDecisionRaw = parsed.top_decision as Record<string, unknown> | null;
+  const topDecision: TopDecision | null = topDecisionRaw && typeof topDecisionRaw === "object" ? {
+    signal: (["BUY", "HOLD", "ACT", "WATCH"].includes(topDecisionRaw.signal as string)
+      ? topDecisionRaw.signal : "WATCH") as TopDecision["signal"],
+    headline: (topDecisionRaw.headline as string) || "",
+    deadline: (topDecisionRaw.deadline as string) || "",
+    market: (topDecisionRaw.market as string) || "",
+    gbp_impact: (topDecisionRaw.gbp_impact as string) || "",
+    rationale: (topDecisionRaw.rationale as string) || "",
+    confidence: (["HIGH", "MEDIUM", "LOW"].includes(topDecisionRaw.confidence as string)
+      ? topDecisionRaw.confidence : "MEDIUM") as TopDecision["confidence"],
+  } : null;
+
   const briefRow = {
     brief_date: todayUtc,
     persona,
     generated_at: new Date().toISOString(),
     feed_snapshot_at: feeds.fetched_at ?? null,
+    top_decision: topDecision,
     narrative: (parsed.narrative as string) || "No narrative generated.",
     three_things: (parsed.three_things as string[]) || [],
     action_rationale: (parsed.action_rationale as Record<string, string>) || {},
@@ -691,6 +754,7 @@ Deno.serve(async (req: Request) => {
         persona,
         generated_at: new Date().toISOString(),
         feed_snapshot_at: feeds?.fetched_at ?? null,
+        top_decision: null,
         narrative: "AI brief unavailable — OPENAI_API_KEY not configured. Market data has been fetched and signals are derived automatically.",
         three_things: ["Check price signals in the action list below", "Review conflict intelligence for supply chain risks", "Monitor GBP/USD for import cost implications"],
         action_rationale: {},

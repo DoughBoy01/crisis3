@@ -9,6 +9,16 @@ const corsHeaders = {
 
 type PersonaId = "general" | "trader" | "agri" | "logistics" | "analyst";
 
+interface TopDecision {
+  signal: "BUY" | "HOLD" | "ACT" | "WATCH";
+  headline: string;
+  deadline: string;
+  market: string;
+  gbp_impact: string;
+  rationale: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+}
+
 interface PriceSnapshotEntry {
   label: string;
   price: number;
@@ -29,6 +39,8 @@ interface DailyBrief {
   market_outlook: string;
   sector_news_digest: Record<string, string[]> | null;
   sector_forward_outlook: Record<string, string> | null;
+  compounding_risk: string | null;
+  top_decision: TopDecision | null;
   model: string;
   prompt_tokens: number | null;
   completion_tokens: number | null;
@@ -45,6 +57,54 @@ interface EmailSubscription {
   unsubscribe_token: string;
   persona: PersonaId;
 }
+
+const SIGNAL_CONFIG: Record<TopDecision["signal"], {
+  bg: string;
+  border: string;
+  badgeBg: string;
+  badgeText: string;
+  label: string;
+  icon: string;
+}> = {
+  BUY: {
+    bg: "#052e16",
+    border: "#16a34a",
+    badgeBg: "#16a34a",
+    badgeText: "#ffffff",
+    label: "BUY",
+    icon: "&#9650;",
+  },
+  ACT: {
+    bg: "#1c0a0a",
+    border: "#dc2626",
+    badgeBg: "#dc2626",
+    badgeText: "#ffffff",
+    label: "ACT NOW",
+    icon: "&#9888;",
+  },
+  WATCH: {
+    bg: "#0c1a2e",
+    border: "#f59e0b",
+    badgeBg: "#f59e0b",
+    badgeText: "#0f172a",
+    label: "WATCH",
+    icon: "&#9679;",
+  },
+  HOLD: {
+    bg: "#0f172a",
+    border: "#334155",
+    badgeBg: "#334155",
+    badgeText: "#94a3b8",
+    label: "HOLD",
+    icon: "&#8212;",
+  },
+};
+
+const CONFIDENCE_LABEL: Record<TopDecision["confidence"], string> = {
+  HIGH: "HIGH CONFIDENCE",
+  MEDIUM: "MEDIUM CONFIDENCE",
+  LOW: "LOW CONFIDENCE — WATCH CLOSELY",
+};
 
 const PERSONA_META: Record<PersonaId, {
   label: string;
@@ -123,19 +183,13 @@ const PERSONA_PRICE_GROUPS: Record<PersonaId, string[]> = {
   trader:    ["Brent Crude Oil (ICE)", "WTI Crude Oil", "Natural Gas (NYMEX)", "GBP/USD", "GBP/EUR", "EUR/USD", "Gold", "Silver", "Copper", "US Dollar Index"],
   agri:      ["Wheat (CBOT)", "Corn (CBOT)", "Soybeans (CBOT)", "Rough Rice (CBOT)", "Brent Crude Oil (ICE)", "Natural Gas (NYMEX)", "GBP/USD"],
   logistics: ["Baltic Dry Index", "Brent Crude Oil (ICE)", "Heating Oil (NYMEX)", "RBOB Gasoline", "GBP/USD", "GBP/EUR"],
-  analyst:   [], // all
+  analyst:   [],
 };
 
 function formatPrice(price: number, currency: string): string {
-  if (["USX"].includes(currency)) {
-    return `${(price / 100).toFixed(2)}`;
-  }
-  if (currency === "GBp") {
-    return `${price.toFixed(0)}p`;
-  }
-  if (currency === "pts") {
-    return `${price.toFixed(0)}`;
-  }
+  if (["USX"].includes(currency)) return `${(price / 100).toFixed(2)}`;
+  if (currency === "GBp") return `${price.toFixed(0)}p`;
+  if (currency === "pts") return `${price.toFixed(0)}`;
   if (price > 1000) return price.toFixed(0);
   if (price > 100) return price.toFixed(2);
   return price.toFixed(4);
@@ -155,6 +209,99 @@ function arrowIcon(pct: number | null): string {
   if (pct == null || pct === 0) return `<span style="color:#475569;">&#8212;</span>`;
   if (pct > 0) return `<span style="color:#34d399;">&#9650;</span>`;
   return `<span style="color:#f87171;">&#9660;</span>`;
+}
+
+function buildDecisionBlock(decision: TopDecision, accentColor: string): string {
+  const cfg = SIGNAL_CONFIG[decision.signal] ?? SIGNAL_CONFIG.WATCH;
+  const confidenceText = CONFIDENCE_LABEL[decision.confidence] ?? "MEDIUM CONFIDENCE";
+  const isHold = decision.signal === "HOLD";
+
+  return `
+    <tr>
+      <td style="padding:0 0 0 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:${cfg.bg};border:2px solid ${cfg.border};border-radius:8px;overflow:hidden;">
+
+          <!-- Decision label bar -->
+          <tr>
+            <td style="background:${cfg.badgeBg};padding:8px 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="font-size:11px;font-weight:800;color:${cfg.badgeText};letter-spacing:0.14em;text-transform:uppercase;">
+                      ${cfg.icon}&nbsp;&nbsp;TODAY'S PROCUREMENT DECISION &mdash; ${cfg.label}
+                    </span>
+                  </td>
+                  <td align="right">
+                    <span style="font-size:10px;font-weight:700;color:${isHold ? "#64748b" : cfg.badgeText};letter-spacing:0.1em;opacity:0.85;">${confidenceText}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Headline -->
+          <tr>
+            <td style="padding:20px 20px 4px;">
+              <p style="margin:0;font-size:22px;font-weight:800;color:#f1f5f9;line-height:1.25;letter-spacing:-0.02em;">${decision.headline}</p>
+            </td>
+          </tr>
+
+          <!-- Market + Deadline -->
+          <tr>
+            <td style="padding:8px 20px 14px;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding-right:16px;">
+                    <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Market</span><br />
+                    <span style="font-size:13px;font-weight:600;color:#cbd5e1;">${decision.market}</span>
+                  </td>
+                  <td style="padding-right:16px;border-left:1px solid #1e293b;padding-left:16px;">
+                    <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Act by</span><br />
+                    <span style="font-size:13px;font-weight:700;color:${isHold ? "#475569" : cfg.border};">${decision.deadline}</span>
+                  </td>
+                  ${decision.gbp_impact ? `
+                  <td style="border-left:1px solid #1e293b;padding-left:16px;">
+                    <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">£ Exposure</span><br />
+                    <span style="font-size:13px;font-weight:700;color:${isHold ? "#475569" : "#fbbf24"};">${decision.gbp_impact}</span>
+                  </td>` : ""}
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Rationale -->
+          ${decision.rationale ? `
+          <tr>
+            <td style="padding:0 20px 18px;">
+              <div style="border-top:1px solid #1e293b;padding-top:12px;">
+                <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.65;">${decision.rationale}</p>
+              </div>
+            </td>
+          </tr>` : ""}
+
+        </table>
+      </td>
+    </tr>`;
+}
+
+function buildCompoundingRiskBlock(risk: string, accentColor: string): string {
+  return `
+    <tr>
+      <td style="padding:0;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#1c0a00;border:1px solid #dc2626;border-radius:6px;overflow:hidden;">
+          <tr>
+            <td style="padding:5px 16px;background:#dc2626;">
+              <span style="font-size:10px;font-weight:800;color:#fff;letter-spacing:0.12em;text-transform:uppercase;">&#9888;&nbsp; COMPOUNDING COST ALERT</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:12px 16px;">
+              <p style="margin:0;font-size:13px;color:#fca5a5;line-height:1.65;">${risk}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`;
 }
 
 function buildPriceTable(snapshot: PriceSnapshotEntry[], persona: PersonaId): string {
@@ -250,8 +397,15 @@ function buildHtmlEmail(
   const greeting = recipientName ? `Hi ${recipientName},` : "Good morning,";
 
   const priceTable = buildPriceTable(brief.price_snapshot ?? [], persona);
-
   const sectorRows = buildSectorRows(brief, meta.sectors, meta.accentColor);
+
+  const decisionBlock = brief.top_decision
+    ? buildDecisionBlock(brief.top_decision, meta.accentColor)
+    : "";
+
+  const compoundingBlock = brief.compounding_risk && brief.compounding_risk.length > 10
+    ? buildCompoundingRiskBlock(brief.compounding_risk, meta.accentColor)
+    : "";
 
   const threeThingsRows = (brief.three_things ?? []).map((thing, i) => `
     <tr>
@@ -286,13 +440,13 @@ function buildHtmlEmail(
 
         <!-- Header -->
         <tr>
-          <td style="background:${meta.headerBg};border:1px solid ${meta.borderColor};border-top:none;border-bottom:none;padding:28px 32px 20px;">
+          <td style="background:${meta.headerBg};border:1px solid ${meta.borderColor};border-top:none;border-bottom:none;padding:24px 32px 16px;">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td valign="middle">
                   <p style="margin:0 0 3px;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.14em;">DawnSignal &middot; Procurement Intelligence</p>
-                  <h1 style="margin:0;font-size:24px;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em;line-height:1.2;">Morning Brief${personaTagHtml}</h1>
-                  <p style="margin:6px 0 0;font-size:13px;color:#64748b;">${dateStr} &middot; Generated ${timeStr}</p>
+                  <h1 style="margin:0;font-size:22px;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em;line-height:1.2;">Morning Brief${personaTagHtml}</h1>
+                  <p style="margin:5px 0 0;font-size:12px;color:#64748b;">${dateStr} &middot; Generated ${timeStr}</p>
                 </td>
                 <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
                   <span style="display:inline-block;background:#0ea5e9;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:4px 10px;border-radius:20px;">LIVE DATA</span>
@@ -302,6 +456,26 @@ function buildHtmlEmail(
           </td>
         </tr>
 
+        ${decisionBlock ? `
+        <!-- TODAY'S DECISION — hero block -->
+        <tr>
+          <td style="background:${meta.headerBg};border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};padding:0 24px 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${decisionBlock}
+            </table>
+          </td>
+        </tr>` : ""}
+
+        ${compoundingBlock ? `
+        <!-- Compounding Risk Alert -->
+        <tr>
+          <td style="background:#0d1627;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:0 24px 16px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${compoundingBlock}
+            </table>
+          </td>
+        </tr>` : ""}
+
         <!-- Divider -->
         <tr><td style="background:${meta.headerBg};border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};padding:0 32px;">
           <div style="border-top:1px solid ${meta.borderColor};"></div>
@@ -309,11 +483,11 @@ function buildHtmlEmail(
 
         <!-- Greeting + Narrative -->
         <tr>
-          <td style="background:#0d1627;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};padding:24px 32px 20px;">
-            <p style="margin:0 0 14px;font-size:13px;color:#64748b;">${greeting}</p>
-            <p style="margin:0;font-size:16px;font-weight:600;color:#f1f5f9;line-height:1.65;">${brief.narrative}</p>
+          <td style="background:#0d1627;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};padding:20px 32px 20px;">
+            <p style="margin:0 0 12px;font-size:13px;color:#64748b;">${greeting}</p>
+            <p style="margin:0;font-size:15px;font-weight:500;color:#e2e8f0;line-height:1.7;">${brief.narrative}</p>
             ${brief.geopolitical_context ? `
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;">
               <tr>
                 <td style="border-left:2px solid ${meta.accentColor};padding:2px 0 2px 14px;">
                   <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.65;">${brief.geopolitical_context}</p>
@@ -359,7 +533,7 @@ function buildHtmlEmail(
         <!-- Procurement Actions -->
         <tr>
           <td style="background:#0a111e;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:20px 32px 24px;">
-            <p style="margin:0 0 14px;font-size:10px;font-weight:700;color:${meta.accentColor};text-transform:uppercase;letter-spacing:0.12em;">Recommended Actions</p>
+            <p style="margin:0 0 14px;font-size:10px;font-weight:700;color:${meta.accentColor};text-transform:uppercase;letter-spacing:0.12em;">Supporting Actions</p>
             <table width="100%" cellpadding="0" cellspacing="0">
               ${(brief.procurement_actions ?? []).map((action, i) => `
               <tr>
@@ -434,6 +608,26 @@ function buildTextEmail(brief: DailyBrief, recipientName: string, persona: Perso
   lines.push(dateStr);
   lines.push("=".repeat(56));
   lines.push("");
+
+  if (brief.top_decision) {
+    const d = brief.top_decision;
+    lines.push(`TODAY'S DECISION: ${d.signal}`);
+    lines.push("-".repeat(40));
+    lines.push(d.headline);
+    lines.push(`Market: ${d.market}`);
+    lines.push(`Act by: ${d.deadline}`);
+    if (d.gbp_impact) lines.push(`£ Exposure: ${d.gbp_impact}`);
+    if (d.rationale) lines.push(`Why: ${d.rationale}`);
+    lines.push(`Confidence: ${d.confidence}`);
+    lines.push("");
+  }
+
+  if (brief.compounding_risk && brief.compounding_risk.length > 10) {
+    lines.push("*** COMPOUNDING COST ALERT ***");
+    lines.push(brief.compounding_risk);
+    lines.push("");
+  }
+
   lines.push(recipientName ? `Hi ${recipientName},` : "Good morning,");
   lines.push("");
   lines.push(brief.narrative);
@@ -487,7 +681,7 @@ function buildTextEmail(brief: DailyBrief, recipientName: string, persona: Perso
   const actions = brief.procurement_actions ?? [];
   if (actions.length > 0) {
     lines.push("");
-    lines.push("RECOMMENDED ACTIONS");
+    lines.push("SUPPORTING ACTIONS");
     lines.push("-".repeat(40));
     actions.forEach((a, i) => { lines.push(`${i + 1}. ${a}`); lines.push(""); });
   }
@@ -504,15 +698,29 @@ function buildTextEmail(brief: DailyBrief, recipientName: string, persona: Perso
   return lines.join("\n");
 }
 
-function buildPersonaSubjectTag(persona: PersonaId): string {
-  const tags: Record<PersonaId, string> = {
+function buildPersonaSubjectLine(brief: DailyBrief, persona: PersonaId, dateStr: string): string {
+  const personaTags: Record<PersonaId, string> = {
     general: "",
-    trader: "Trader Edition",
-    agri: "Agri Buyer Edition",
-    logistics: "Logistics Edition",
-    analyst: "Risk Analyst Edition",
+    trader: " · Trader",
+    agri: " · Agri Buyer",
+    logistics: " · Logistics",
+    analyst: " · Risk Analyst",
   };
-  return tags[persona] ?? "";
+
+  if (brief.top_decision) {
+    const d = brief.top_decision;
+    const signalEmoji: Record<string, string> = {
+      BUY: "[BUY]",
+      ACT: "[ACT NOW]",
+      WATCH: "[WATCH]",
+      HOLD: "[HOLD]",
+    };
+    const tag = signalEmoji[d.signal] ?? "[WATCH]";
+    const shortHeadline = d.headline.length > 50 ? d.headline.slice(0, 47) + "..." : d.headline;
+    return `${tag} ${shortHeadline}${personaTags[persona]} — DawnSignal`;
+  }
+
+  return `Morning Brief — ${dateStr}${personaTags[persona]}`;
 }
 
 Deno.serve(async (req: Request) => {
@@ -650,11 +858,18 @@ Deno.serve(async (req: Request) => {
         for (const sub of subscribers as EmailSubscription[]) {
           try {
             const persona: PersonaId = (sub.persona as PersonaId) ?? "general";
-            const personaTag = buildPersonaSubjectTag(persona);
-            const subjectSuffix = personaTag ? ` · ${personaTag}` : "";
 
-            const html = buildHtmlEmail(brief as DailyBrief, sub.name, sub.unsubscribe_token, supabaseUrl, persona, appUrl);
-            const text = buildTextEmail(brief as DailyBrief, sub.name, persona);
+            const personaBrief = await db
+              .from("daily_brief")
+              .select("*")
+              .eq("brief_date", todayUtc)
+              .eq("persona", persona)
+              .maybeSingle()
+              .then(r => (r.data as DailyBrief | null) ?? (brief as DailyBrief));
+
+            const html = buildHtmlEmail(personaBrief, sub.name, sub.unsubscribe_token, supabaseUrl, persona, appUrl);
+            const text = buildTextEmail(personaBrief, sub.name, persona);
+            const subject = buildPersonaSubjectLine(personaBrief, persona, dateStr);
 
             const resendRes = await fetch("https://api.resend.com/emails", {
               method: "POST",
@@ -665,7 +880,7 @@ Deno.serve(async (req: Request) => {
               body: JSON.stringify({
                 from: "DawnSignal <onboarding@resend.dev>",
                 to: [sub.email],
-                subject: `Morning Brief — ${dateStr}${subjectSuffix}`,
+                subject,
                 html,
                 text,
               }),
