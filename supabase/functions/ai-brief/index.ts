@@ -302,8 +302,14 @@ function buildPrompt(
 
   const fxSrc = feeds.sources.find(s => s.source_name === "ExchangeRate.host FX");
   if (fxSrc?.success) {
-    if (fxSrc.gbp_usd) prices.push(`GBP/USD: ${fxSrc.gbp_usd.toFixed(4)}`);
-    if (fxSrc.gbp_eur) prices.push(`GBP/EUR: ${fxSrc.gbp_eur.toFixed(4)}`);
+    const yahooGbpUsd = yahooPrices?.quotes?.find(q => q.symbol === "GBPUSD=X");
+    const yahooGbpEur = yahooPrices?.quotes?.find(q => q.symbol === "GBPEUR=X");
+    if (fxSrc.gbp_usd && !yahooGbpUsd?.changePercent) {
+      prices.push(`GBP/USD (spot): ${(fxSrc.gbp_usd as number).toFixed(4)} — no overnight change available from this source`);
+    }
+    if (fxSrc.gbp_eur && !yahooGbpEur?.changePercent) {
+      prices.push(`GBP/EUR (spot): ${(fxSrc.gbp_eur as number).toFixed(4)} — no overnight change available from this source`);
+    }
   }
 
   const historicalContextSection = buildHistoricalContextSection(feeds, percentiles, seasonal);
