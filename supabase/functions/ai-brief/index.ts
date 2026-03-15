@@ -395,12 +395,64 @@ function buildPriceMovesSection(feeds: FeedPayload): string {
   return result.length ? result.join("\n") : "No price data available.";
 }
 
+interface ScoutTopicIntelligence {
+  topic_id: string;
+  topic_label: string;
+  category: string;
+  findings: string[];
+  sources: { title: string; url: string }[];
+  summary: string;
+  signal: string;
+}
+
+interface ScoutPayload {
+  intelligence?: ScoutTopicIntelligence[];
+  skipped?: boolean;
+}
+
+function buildScoutSection(scout: ScoutPayload | null, persona: PersonaId): string {
+  if (!scout?.intelligence?.length) return "";
+  const cfg = PERSONA_CONFIG[persona];
+  const relevantCategories = [...cfg.primarySectors, ...cfg.supportingSectors];
+
+  const relevant = scout.intelligence.filter(t =>
+    relevantCategories.includes(t.category) || t.category === "geopolitical" || t.category === "policy"
+  );
+  if (!relevant.length) return "";
+
+  const lines: string[] = ["=== SCOUTING INTELLIGENCE (OpenAI Web Search — Last 24h) ==="];
+  lines.push("The following intelligence was gathered by an automated scout agent searching the live web before market open.");
+  lines.push("Use this to supplement and cross-reference the RSS news below. Prioritise findings with named sources and specific figures.");
+  lines.push("");
+
+  for (const topic of relevant) {
+    lines.push(`--- ${topic.topic_label.toUpperCase()} [${topic.signal}] ---`);
+    lines.push(`Summary: ${topic.summary}`);
+    if (topic.findings.length > 0) {
+      lines.push("Findings:");
+      for (const f of topic.findings) {
+        lines.push(`  • ${f}`);
+      }
+    }
+    if (topic.sources.length > 0) {
+      lines.push("Sources:");
+      for (const s of topic.sources.slice(0, 3)) {
+        lines.push(`  [${s.title}] ${s.url}`);
+      }
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
 function buildPersonaPrompt(
   persona: PersonaId,
   feeds: FeedPayload,
   percentiles: CommodityPercentile[],
   seasonal: SeasonalPattern[],
   conflictBaselines: ConflictBaseline[],
+  scout: ScoutPayload | null,
 ): string {
   const cfg = PERSONA_CONFIG[persona];
   const lines: string[] = [];
@@ -409,6 +461,7 @@ function buildPersonaPrompt(
   const conflictBaselineSection = buildConflictBaselineSection(conflictBaselines, feeds);
   const newsSection = buildNewsSection(feeds);
   const priceMovesSection = buildPriceMovesSection(feeds);
+  const scoutSection = buildScoutSection(scout, persona);
 
   const nowUtc = new Date();
   const dayOfWeek = nowUtc.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
@@ -524,6 +577,10 @@ function buildPersonaPrompt(
   }
   lines.push(newsSection);
   lines.push("");
+  if (scoutSection) {
+    lines.push(scoutSection);
+    lines.push("");
+  }
 
   lines.push("=== OUTPUT STANDARDS — NON-NEGOTIABLE ===");
   lines.push("Every number you cite must come from the PRICE DATA section above. Do not invent or estimate prices.");
@@ -738,6 +795,7 @@ async function generateBriefForPersona(
   db: ReturnType<typeof createClient>,
   todayUtc: string,
   force: boolean,
+  scout: ScoutPayload | null,
 ): Promise<{ brief: DailyBrief; cached: boolean }> {
   const { data: existing, error: selectErr } = await db
     .from("daily_brief")
@@ -752,7 +810,7 @@ async function generateBriefForPersona(
     return { brief: existing as DailyBrief, cached: true };
   }
 
-  const prompt = buildPersonaPrompt(persona, feeds, percentiles, seasonal, conflictBaselines);
+  const prompt = buildPersonaPrompt(persona, feeds, percentiles, seasonal, conflictBaselines, scout);
 
   const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -859,12 +917,14 @@ Deno.serve(async (req: Request) => {
         feeds = await feedsRes.json() as FeedPayload;
       }
 
+      const scout: ScoutPayload | null = body?.scout ?? null;
+
       const { percentiles, seasonal, conflictBaselines } = await fetchHistoricalContext(db);
       const results: Record<string, unknown> = {};
 
       for (const persona of ALL_PERSONAS) {
         try {
-          const result = await generateBriefForPersona(persona, feeds!, percentiles, seasonal, conflictBaselines, openaiKey, db, todayUtc, force);
+          const result = await generateBriefForPersona(persona, feeds!, percentiles, seasonal, conflictBaselines, openaiKey, db, todayUtc, force, scout);
           results[persona] = { cached: result.cached, brief_date: result.brief.brief_date };
         } catch (e) {
           results[persona] = { error: String(e) };
@@ -933,8 +993,9 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const scout: ScoutPayload | null = body?.scout ?? null;
     const { percentiles, seasonal, conflictBaselines } = await fetchHistoricalContext(db);
-    const result = await generateBriefForPersona(persona, feeds!, percentiles, seasonal, conflictBaselines, openaiKey, db, todayUtc, force);
+    const result = await generateBriefForPersona(persona, feeds!, percentiles, seasonal, conflictBaselines, openaiKey, db, todayUtc, force, scout);
 
     return new Response(
       JSON.stringify({ cached: result.cached, brief: result.brief }),

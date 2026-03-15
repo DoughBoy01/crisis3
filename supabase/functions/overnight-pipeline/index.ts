@@ -64,6 +64,27 @@ Deno.serve(async (req: Request) => {
       .eq("brief_date", todayUtc)
       .maybeSingle();
 
+    // ── Step 0: Run scouting agent ────────────────────────────────────────────
+    const step0Start = Date.now();
+    let scoutData: unknown = null;
+
+    {
+      const result = await callFunction(supabaseUrl, anonKey, "scout-markets", force ? { force: true } : {});
+      const duration_ms = Date.now() - step0Start;
+
+      if (result.ok) {
+        const d = result.data as { skipped?: boolean; topics_scouted?: number; run_date?: string };
+        scoutData = result.data;
+        if (d?.skipped) {
+          logs.push({ step: "scout-markets", status: "skipped", detail: `Already scouted for ${d.run_date}`, duration_ms });
+        } else {
+          logs.push({ step: "scout-markets", status: "ok", detail: `Scouted ${d?.topics_scouted ?? 0} topics`, duration_ms });
+        }
+      } else {
+        logs.push({ step: "scout-markets", status: "error", detail: `HTTP ${result.status}: ${JSON.stringify(result.data)}`, duration_ms });
+      }
+    }
+
     // ── Step 1: Fetch overnight market feeds ─────────────────────────────────
     const step1Start = Date.now();
     let feedData: unknown = null;
@@ -89,6 +110,7 @@ Deno.serve(async (req: Request) => {
     } else {
       const briefBody: Record<string, unknown> = { all_personas: true };
       if (feedData) briefBody.feeds = feedData;
+      if (scoutData) briefBody.scout = scoutData;
       if (force) briefBody.force = true;
 
       const result = await callFunction(supabaseUrl, anonKey, "ai-brief", briefBody);

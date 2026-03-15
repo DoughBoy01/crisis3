@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Terminal, RefreshCw, Mail, Zap } from 'lucide-react';
+import { Play, CheckCircle, XCircle, Loader, ChevronDown, ChevronUp, Terminal, RefreshCw, Mail, Zap, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -51,6 +51,35 @@ export default function DevControlsPanel() {
       setResult(data);
       setRunStatus(data.success ? 'done' : 'error');
       if (data.logs) setLogsOpen(true);
+    } catch (e) {
+      setResult({ success: false, error: String(e) });
+      setRunStatus('error');
+    }
+  }
+
+  async function runScoutOnly() {
+    setRunStatus('running');
+    setResult(null);
+    setLogsOpen(false);
+    try {
+      const t0 = Date.now();
+      const data = await callEdge('scout-markets', { force: true }) as Record<string, unknown>;
+      const duration_ms = Date.now() - t0;
+      const topicsCount = (data.topics_scouted as number) ?? 0;
+      const err = data.error as string | undefined;
+      setResult({
+        success: !err,
+        total_duration_ms: duration_ms,
+        logs: [{
+          step: 'scout-markets',
+          status: err ? 'error' : 'ok',
+          detail: err ?? `Scouted ${topicsCount} topics`,
+          duration_ms,
+        }],
+        error: err,
+      });
+      setRunStatus(err ? 'error' : 'done');
+      setLogsOpen(true);
     } catch (e) {
       setResult({ success: false, error: String(e) });
       setRunStatus('error');
@@ -149,6 +178,12 @@ export default function DevControlsPanel() {
           </p>
 
           <div className="flex flex-wrap gap-2">
+            <ActionButton
+              icon={<Search size={11} />}
+              label="Run Scout"
+              disabled={isRunning}
+              onClick={runScoutOnly}
+            />
             <ActionButton
               icon={<RefreshCw size={11} />}
               label="Refresh Feeds"
