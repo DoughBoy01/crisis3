@@ -361,10 +361,11 @@ function NewsRow({ item, timezone, isAdmin, refId, dismissedRecord, onDismiss, o
         {isAdmin && !confirming && (
           <button
             onClick={handleDismissClick}
-            className="shrink-0 flex items-center gap-1 text-[9px] text-slate-600 hover:text-red-400 transition-colors px-1.5 py-1 rounded border border-transparent hover:border-red-500/30 hover:bg-red-500/5 mt-0.5"
+            className="shrink-0 flex items-center gap-1 text-[10px] text-slate-400 hover:text-red-400 transition-colors px-2 py-1 rounded border border-slate-700/50 hover:border-red-500/40 hover:bg-red-500/8 mt-0.5 bg-slate-800/60"
             title="Remove this story"
           >
-            <Trash2 size={11} />
+            <Trash2 size={12} />
+            <span className="hidden sm:inline">Remove</span>
           </button>
         )}
 
