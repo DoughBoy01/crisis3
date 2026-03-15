@@ -1,6 +1,7 @@
 import { TrendingUp, ShoppingBasket, Ship, BarChart2, Briefcase, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import type { PersonaId } from './PersonaBar';
 import type { FeedPayload } from '@/hooks/useMarketFeeds';
+import { getYahooQuote } from '@/hooks/useMarketFeeds';
 import type { ActionItem, MorningAlert, ConflictZone } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -64,172 +65,225 @@ function getPersonaMeta(persona: PersonaId) {
   }
 }
 
+function fmt(n: number, d = 2) { return n.toFixed(d); }
+function pctStr(n: number) { return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`; }
+
 function buildPersonaSummary(
   persona: PersonaId,
-  feeds: FeedPayload | null,
+  feeds: FeedPayload,
   alerts: MorningAlert[],
   actions: ActionItem[],
   conflictZones: ConflictZone[],
 ): { headline: string; bullets: string[]; callToAction: string } {
-  const brentQ = feeds?.sources.find(s => s.source_name === 'Yahoo Finance')?.quotes?.find(q => q.symbol === 'BZ=F');
-  const brentPct = brentQ?.changePercent ?? 0;
-  const brentPrice = brentQ?.price ?? 0;
-  const gbpUsdQ = feeds?.sources.find(s => s.source_name === 'Yahoo Finance')?.quotes?.find(q => q.symbol === 'GBPUSD=X');
-  const gbpUsd = gbpUsdQ?.price ?? 0;
-  const gbpPct = gbpUsdQ?.changePercent ?? 0;
-  const ngQ = feeds?.sources.find(s => s.source_name === 'Yahoo Finance')?.quotes?.find(q => q.symbol === 'NG=F');
-  const ngPct = ngQ?.changePercent ?? 0;
-  const ngPrice = ngQ?.price ?? 0;
-  const wheatQ = feeds?.sources.find(s => s.source_name === 'Yahoo Finance')?.quotes?.find(q => q.symbol === 'ZW=F');
-  const wheatPct = wheatQ?.changePercent ?? 0;
+  const brentQ    = getYahooQuote(feeds, 'BZ=F');
+  const ngQ       = getYahooQuote(feeds, 'NG=F');
+  const wheatQ    = getYahooQuote(feeds, 'ZW=F');
+  const gbpUsdQ   = getYahooQuote(feeds, 'GBPUSD=X');
+  const bdiQ      = getYahooQuote(feeds, 'BDI');
+  const goldQ     = getYahooQuote(feeds, 'GC=F');
+
+  const brentEia  = feeds.sources.find(s => s.source_name === 'EIA Brent Crude');
+  const fxSrc     = feeds.sources.find(s => s.source_name === 'ExchangeRate.host FX');
+
+  const brentPct   = brentQ?.changePercent ?? brentEia?.change_pct ?? 0;
+  const brentPrice = brentQ?.price ?? brentEia?.current_price ?? 0;
+  const ngPct      = ngQ?.changePercent ?? 0;
+  const ngPrice    = ngQ?.price ?? 0;
+  const wheatPct   = wheatQ?.changePercent ?? 0;
   const wheatPrice = wheatQ?.price ?? 0;
-  const copperQ = feeds?.sources.find(s => s.source_name === 'Yahoo Finance')?.quotes?.find(q => q.symbol === 'HG=F');
-  const copperPct = copperQ?.changePercent ?? 0;
-  const bdiQ = feeds?.sources.find(s => s.source_name === 'Yahoo Finance')?.quotes?.find(q => q.symbol === 'BDI');
-  const bdiPct = bdiQ?.changePercent ?? 0;
-  const bdiPrice = bdiQ?.price ?? 0;
+  const gbpUsd     = gbpUsdQ?.price ?? fxSrc?.gbp_usd ?? 0;
+  const gbpPct     = gbpUsdQ?.changePercent ?? 0;
+  const bdiPct     = bdiQ?.changePercent ?? 0;
+  const bdiPrice   = bdiQ?.price ?? 0;
+  const goldPct    = goldQ?.changePercent ?? 0;
 
   const criticalZones = conflictZones.filter(z => z.riskLevel === 'CRITICAL' || z.riskLevel === 'HIGH');
-  const hasRedSea = criticalZones.some(z => z.id === 'red-sea-yemen');
-  const hasMiddleEast = criticalZones.some(z => z.id === 'middle-east-gulf' || z.id === 'israel-gaza');
-  const hasUkraine = criticalZones.some(z => z.id === 'ukraine-russia');
+  const hasRedSea   = conflictZones.some(z => z.id === 'red-sea-yemen');
+  const hasMiddleEast = conflictZones.some(z => z.id === 'middle-east-gulf' || z.id === 'israel-gaza');
+  const hasUkraine  = conflictZones.some(z => z.id === 'ukraine-russia');
   const urgentActions = actions.filter(a => a.signal === 'URGENT');
-  const buyActions = actions.filter(a => a.signal === 'BUY');
+  const buyActions  = actions.filter(a => a.signal === 'BUY');
+
+  const hasBrentData  = brentPrice > 0;
+  const hasGbpData    = gbpUsd > 0;
+  const hasWheatData  = wheatPrice > 0;
+  const hasNgData     = ngPrice > 0;
+  const hasBdiData    = bdiPrice > 0;
 
   switch (persona) {
     case 'trader': {
       const crisisText = criticalZones.length > 0
-        ? `${criticalZones.length} active crisis theatre${criticalZones.length > 1 ? 's' : ''} affecting commodities`
+        ? `${criticalZones.length} active HIGH/CRITICAL zone${criticalZones.length > 1 ? 's' : ''}: ${criticalZones.map(z => z.region).join(', ')}`
         : 'No critical geopolitical escalations overnight';
-      const brentText = brentPct !== 0
-        ? `Brent ${brentPct > 0 ? '+' : ''}${brentPct.toFixed(2)}% at $${brentPrice.toFixed(2)}/bbl`
-        : 'Brent Crude — awaiting price data';
-      const gbpText = gbpUsd > 0
-        ? `Sterling at ${gbpUsd.toFixed(4)}${gbpPct < -0.5 ? ' — weakening, USD commodities more expensive in GBP' : ''}`
-        : 'FX — awaiting rate data';
+      const brentText = hasBrentData
+        ? `Brent Crude ${pctStr(brentPct)} at $${fmt(brentPrice, 2)}/bbl`
+        : 'Brent Crude — price loading';
+      const gbpText = hasGbpData
+        ? `GBP/USD ${fmt(gbpUsd, 4)} (${pctStr(gbpPct)})${gbpPct < -0.5 ? ' — sterling weakening, USD costs rising' : ''}`
+        : 'GBP/USD — rate loading';
+      const goldText = goldQ?.price
+        ? `Gold ${pctStr(goldPct)} at $${fmt(goldQ.price, 0)}/oz — risk sentiment ${goldPct >= 1 ? 'elevated' : 'neutral'}`
+        : 'Gold — loading';
+
       const headline = urgentActions.length > 0
         ? `${urgentActions.length} urgent signal${urgentActions.length > 1 ? 's' : ''} require action before the 7am standup.`
-        : brentPct !== 0
+        : hasBrentData && Math.abs(brentPct) >= 1
           ? `Brent ${brentPct > 0 ? 'up' : 'down'} ${Math.abs(brentPct).toFixed(2)}% overnight — crisis context below.`
-          : 'Monitor live crisis feeds — no major moves yet.';
+          : criticalZones.length > 0
+            ? `${criticalZones.length} active crisis theatre${criticalZones.length > 1 ? 's' : ''} — see timeline and price attribution below.`
+            : 'No major overnight moves detected. Markets within normal variance.';
+
       return {
         headline,
-        bullets: [
-          crisisText,
-          brentText,
-          gbpText,
-          hasRedSea ? 'Red Sea: shipping disruption active — freight war-risk premiums elevated' : 'Red Sea: no new escalation signals overnight',
-        ],
-        callToAction: 'Review crisis timeline and price attribution below before 7am standup',
+        bullets: [crisisText, brentText, gbpText, goldText],
+        callToAction: urgentActions.length > 0
+          ? 'Review crisis timeline and price attribution before 7am standup'
+          : 'Open crisis timeline to review overnight event-to-market links',
       };
     }
+
     case 'agri': {
-      const wheatText = wheatPrice > 0
-        ? `CBOT Wheat at ${wheatPrice.toFixed(0)}¢/bu (${wheatPct >= 0 ? '+' : ''}${wheatPct.toFixed(2)}% overnight)`
-        : 'Wheat — awaiting price data';
-      const ngText = ngPrice > 0
-        ? `Natural gas at $${ngPrice.toFixed(3)}/MMBtu (${ngPct >= 0 ? '+' : ''}${ngPct.toFixed(2)}%) — feeds fertilizer cost`
-        : 'Gas feedstock — awaiting data';
+      const wheatText = hasWheatData
+        ? `CBOT Wheat ${pctStr(wheatPct)} at ${fmt(wheatPrice, 0)}¢/bu`
+        : 'Wheat — price loading';
+      const ngText = hasNgData
+        ? `Natural gas ${pctStr(ngPct)} at $${fmt(ngPrice, 3)}/MMBtu — feeds fertilizer cost`
+        : 'Natural gas — price loading';
       const ukraineText = hasUkraine
         ? 'Ukraine / Black Sea corridor: active disruption risk to grain exports'
-        : 'Black Sea grain corridor: no new disruption signals';
-      const headline = wheatPct >= 2
-        ? `Grain prices rising ${wheatPct.toFixed(1)}% — review forward cover position before suppliers call you.`
-        : wheatPct <= -1.5
-          ? `Grain prices dipping ${Math.abs(wheatPct).toFixed(1)}% — potential buying window for forward contracts.`
-          : ngPct >= 2
-            ? `Gas up ${ngPct.toFixed(1)}% — fertilizer input costs are rising. Act before pricing rolls forward.`
-            : 'No major agri shocks overnight. Monitor for fertilizer pricing updates.';
+        : 'Black Sea grain corridor: no new disruption signals overnight';
+      const fertText = hasUkraine
+        ? 'Fertilizer supply: Russian/Belarusian sanctions risk remains — monitor Humber landed cost'
+        : 'Fertilizer supply: no fresh sanction signals overnight';
+
+      const headline = hasWheatData && wheatPct >= 2
+        ? `Grain prices up ${wheatPct.toFixed(1)}% — review forward cover before suppliers price in the move.`
+        : hasWheatData && wheatPct <= -1.5
+          ? `Grain prices down ${Math.abs(wheatPct).toFixed(1)}% — potential buying window for forward contracts.`
+          : hasNgData && ngPct >= 2
+            ? `Gas feedstock up ${ngPct.toFixed(1)}% — fertilizer input costs rising. Act before pricing rolls forward.`
+            : hasUkraine
+              ? 'Black Sea disruption signals active — monitor grain and fertilizer supply chain exposure.'
+              : buyActions.length > 0
+                ? `${buyActions.length} buy signal${buyActions.length > 1 ? 's' : ''} in the action panel — potential procurement window today.`
+                : 'No major agri shocks overnight. Standard monitoring applies.';
+
       return {
         headline,
-        bullets: [
-          wheatText,
-          ngText,
-          ukraineText,
-          hasUkraine ? 'Fertilizer supply chain: Russian/Belarusian potash sanctions risk remains elevated' : 'Fertilizer supply: no fresh sanction signals overnight',
-        ],
-        callToAction: buyActions.length > 0 ? `${buyActions.length} buy signal${buyActions.length > 1 ? 's' : ''} identified — see action checklist below` : 'Monitor action panel for procurement signals',
+        bullets: [wheatText, ngText, ukraineText, fertText],
+        callToAction: buyActions.length > 0
+          ? `${buyActions.length} buy signal${buyActions.length > 1 ? 's' : ''} identified — see action checklist below`
+          : 'Check shipping lane status for Black Sea grain route updates',
       };
     }
+
     case 'logistics': {
-      const bdiText = bdiPrice > 0
-        ? `Baltic Dry Index at ${bdiPrice.toFixed(0)} pts (${bdiPct >= 0 ? '+' : ''}${bdiPct.toFixed(2)}% overnight)`
-        : 'Baltic Dry Index — awaiting data';
+      const bdiText = hasBdiData
+        ? `Baltic Dry Index ${pctStr(bdiPct)} at ${fmt(bdiPrice, 0)} pts`
+        : 'Baltic Dry Index — loading';
       const redSeaText = hasRedSea
-        ? 'Red Sea: ACTIVE disruption — rerouting via Cape of Good Hope likely in effect'
+        ? `Red Sea: ACTIVE disruption — Asia-Europe containers rerouting via Cape of Good Hope (+${'\u007e'}14 days)`
         : 'Red Sea: no active disruption signals overnight';
       const hormuzText = hasMiddleEast
-        ? 'Persian Gulf / Hormuz: elevated risk — monitor tanker traffic and war-risk surcharges'
+        ? 'Persian Gulf / Hormuz: elevated risk — war-risk insurance costs rising'
         : 'Hormuz: stable overnight — no new tanker incident reports';
+      const fuelText = hasBrentData
+        ? `Brent ${pctStr(brentPct)} at $${fmt(brentPrice, 2)} — bunker fuel implications for freight cost`
+        : 'Brent — loading';
+
       const headline = hasRedSea
-        ? 'Red Sea disruption active — Asia–Europe container routes are affected. Check your open shipments now.'
-        : bdiPct >= 2
-          ? `Dry bulk rates rising ${bdiPct.toFixed(1)}% — bulk freight costs are moving. Review open contracts.`
-          : 'No critical shipping lane alerts overnight. Standard operational monitoring.';
+        ? 'Red Sea disruption active — check open Asia–Europe shipments now and confirm carrier rerouting status.'
+        : hasBdiData && bdiPct >= 2
+          ? `Dry bulk rates up ${bdiPct.toFixed(1)}% — bulk freight costs moving. Review open contracts.`
+          : criticalZones.length > 0
+            ? `${criticalZones.length} active shipping risk zone${criticalZones.length > 1 ? 's' : ''} — see lane status below.`
+            : 'No critical shipping lane alerts overnight. Standard operational monitoring.';
+
       return {
         headline,
-        bullets: [
-          bdiText,
-          redSeaText,
-          hormuzText,
-          `Fuel cost context: Brent ${brentPct >= 0 ? '+' : ''}${brentPct.toFixed(2)}% at $${brentPrice.toFixed(2)} — bunker fuel implications`,
-        ],
-        callToAction: 'Review shipping lane status and freight rate tracker below',
+        bullets: [bdiText, redSeaText, hormuzText, fuelText],
+        callToAction: 'Review shipping lane RAG status and freight rate tracker below',
       };
     }
+
     case 'analyst': {
-      const riskScore = criticalZones.filter(z => z.riskLevel === 'CRITICAL').length * 3 +
-        criticalZones.filter(z => z.riskLevel === 'HIGH').length * 2 +
+      const riskScore = conflictZones.filter(z => z.riskLevel === 'CRITICAL').length * 3 +
+        conflictZones.filter(z => z.riskLevel === 'HIGH').length * 2 +
         conflictZones.filter(z => z.riskLevel === 'ELEVATED').length;
       const riskLabel = riskScore >= 6 ? 'HIGH' : riskScore >= 3 ? 'ELEVATED' : 'MODERATE';
+      const regionList = [
+        hasMiddleEast && 'Middle East',
+        hasRedSea && 'Red Sea',
+        hasUkraine && 'Eastern Europe',
+      ].filter(Boolean).join(', ') || 'multiple regions';
+
+      const brentReaction = hasBrentData
+        ? `Brent ${pctStr(brentPct)} — ${Math.abs(brentPct) >= 2 ? 'significant, likely crisis-attributed' : 'within normal variance'}`
+        : 'Brent — loading';
+      const gbpReaction = hasGbpData
+        ? `GBP/USD ${fmt(gbpUsd, 4)} (${pctStr(gbpPct)}) — ${gbpPct <= -0.5 ? 'sterling under pressure, risk-off signal' : 'stable'}`
+        : 'GBP/USD — loading';
+
       const headline = criticalZones.length > 0
-        ? `${criticalZones.length} HIGH/CRITICAL zone${criticalZones.length > 1 ? 's' : ''} active. Composite geopolitical risk: ${riskLabel}. Client brief data below.`
-        : 'Geopolitical risk composite: MODERATE. No critical escalations overnight.';
+        ? `${criticalZones.length} HIGH/CRITICAL zone${criticalZones.length > 1 ? 's' : ''} active. Composite risk: ${riskLabel}. Client-ready data below.`
+        : `Geopolitical risk composite: ${riskLabel}. ${conflictZones.length} monitored theatre${conflictZones.length !== 1 ? 's' : ''} — no critical escalations overnight.`;
+
       return {
         headline,
         bullets: [
-          `Composite risk score: ${riskLabel} — ${conflictZones.length} active theatres across ${[hasMiddleEast && 'Middle East', hasRedSea && 'Red Sea', hasUkraine && 'Eastern Europe'].filter(Boolean).join(', ') || 'multiple regions'}`,
-          `Brent reaction: ${brentPct >= 0 ? '+' : ''}${brentPct.toFixed(2)}% — ${Math.abs(brentPct) >= 2 ? 'significant, crisis-attributed' : 'within normal variance'}`,
-          `GBP/USD: ${gbpUsd > 0 ? gbpUsd.toFixed(4) : '—'} — ${gbpPct <= -0.5 ? 'sterling under pressure, risk-off signal' : 'stable'}`,
-          `${urgentActions.length + buyActions.length} actionable procurement signals across tracked markets`,
+          `Composite risk: ${riskLabel} — ${conflictZones.length} active theatre${conflictZones.length !== 1 ? 's' : ''} across ${regionList}`,
+          brentReaction,
+          gbpReaction,
+          `${urgentActions.length + buyActions.length} actionable market signals · ${alerts.length} overnight alerts`,
         ],
-        callToAction: 'Export crisis correlation data and scenario modelling for client briefing',
+        callToAction: 'Open correlation table for citable historical precedents · expand crisis timeline for event attribution',
       };
     }
+
     case 'general':
     default: {
-      const brentImpact = brentPct >= 2
-        ? `Energy prices are up ${brentPct.toFixed(1)}% overnight — your fuel and utility bills could rise.`
-        : brentPct <= -1.5
-          ? `Energy prices dipped ${Math.abs(brentPct).toFixed(1)}% overnight — a potential saving opportunity.`
-          : 'Energy prices are broadly stable overnight.';
-      const fxImpact = gbpUsd > 0 && gbpPct <= -0.5
-        ? `Sterling is weakening (${gbpUsd.toFixed(4)}) — imported goods and raw materials are getting more expensive.`
-        : gbpUsd > 0
-          ? `Sterling is holding at ${gbpUsd.toFixed(4)} — no immediate FX pressure on import costs.`
-          : 'FX rates — checking...';
+      const brentImpact = hasBrentData
+        ? brentPct >= 2
+          ? `Energy prices up ${brentPct.toFixed(1)}% overnight — fuel and utility bills may rise shortly.`
+          : brentPct <= -1.5
+            ? `Energy prices down ${Math.abs(brentPct).toFixed(1)}% overnight — a potential saving opportunity on fuel contracts.`
+            : `Energy prices broadly stable (${pctStr(brentPct)}) — no immediate cost pressure from oil markets.`
+        : 'Energy prices — checking live data.';
+
+      const fxImpact = hasGbpData
+        ? gbpPct <= -0.5
+          ? `Sterling weakening at ${fmt(gbpUsd, 4)} — imported goods and raw materials are getting more expensive in GBP.`
+          : `Sterling steady at ${fmt(gbpUsd, 4)} — no immediate FX pressure on import costs.`
+        : 'FX rates — checking live data.';
+
       const crisisImpact = criticalZones.length > 0
-        ? `${criticalZones.length} ongoing geopolitical situation${criticalZones.length > 1 ? 's' : ''} could affect UK supply chains and energy prices.`
-        : 'No major new geopolitical disruptions overnight.';
+        ? `${criticalZones.length} ongoing geopolitical situation${criticalZones.length > 1 ? 's' : ''} (${criticalZones.map(z => z.region).join(', ')}) could affect UK supply chains.`
+        : 'No major new geopolitical disruptions overnight. Markets broadly calm.';
+
       const headline = urgentActions.length > 0
         ? `${urgentActions.length} market movement${urgentActions.length > 1 ? 's' : ''} overnight that could affect UK business costs. Summary below.`
-        : 'Markets broadly calm overnight. Here is your quick summary.';
+        : hasBrentData && Math.abs(brentPct) >= 1
+          ? `${brentPct > 0 ? 'Energy prices rising' : 'Energy prices falling'} — here is what it means for your business.`
+          : criticalZones.length > 0
+            ? 'Global events to watch — here is what they mean for UK costs and supply chains.'
+            : 'Markets broadly calm overnight. Here is your quick summary.';
+
       return {
         headline,
         bullets: [brentImpact, fxImpact, crisisImpact],
-        callToAction: 'Scroll down for the full plain-English breakdown',
+        callToAction: 'Scroll down for the full plain-English breakdown and action checklist',
       };
     }
   }
 }
 
 export default function PersonaHero({ persona, feeds, alerts, actions, conflictZones, loading }: PersonaHeroProps) {
-  if (persona === 'general' && !loading && feeds === null) return null;
-
   const meta = getPersonaMeta(persona);
   const Icon = meta.icon;
-  const summary = !loading && feeds ? buildPersonaSummary(persona, feeds, alerts, actions, conflictZones) : null;
+
+  const summary = feeds ? buildPersonaSummary(persona, feeds, alerts, actions, conflictZones) : null;
   const hasCritical = alerts.some(a => a.severity === 'critical');
+  const isLoading = loading && !feeds;
 
   return (
     <div className={cn(
@@ -252,12 +306,13 @@ export default function PersonaHero({ persona, feeds, alerts, actions, conflictZ
           )}
         </div>
 
-        {loading || !summary ? (
+        {isLoading ? (
           <div className="space-y-2 animate-pulse">
             <div className="h-4 bg-slate-700/50 rounded w-3/4" />
-            <div className="h-3 bg-slate-700/30 rounded w-1/2" />
+            <div className="h-3 bg-slate-700/30 rounded w-2/3" />
+            <div className="h-3 bg-slate-700/20 rounded w-1/2" />
           </div>
-        ) : (
+        ) : summary ? (
           <div className="space-y-3">
             <p className="text-sm font-semibold text-slate-100 leading-snug">{summary.headline}</p>
 
@@ -274,6 +329,11 @@ export default function PersonaHero({ persona, feeds, alerts, actions, conflictZ
               <ArrowRight size={10} className={meta.color} />
               <span className={cn('text-[11px] font-medium', meta.color)}>{summary.callToAction}</span>
             </div>
+          </div>
+        ) : (
+          <div className="space-y-2 animate-pulse">
+            <div className="h-4 bg-slate-700/50 rounded w-3/4" />
+            <div className="h-3 bg-slate-700/30 rounded w-1/2" />
           </div>
         )}
       </div>
