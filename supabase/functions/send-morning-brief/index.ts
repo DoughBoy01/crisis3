@@ -26,6 +26,24 @@ interface PriceSnapshotEntry {
   currency: string;
 }
 
+interface ShippingLaneEntry {
+  lane: string;
+  region: string;
+  status: "RED" | "AMBER" | "GREEN";
+  statusLabel: string;
+  impact: string;
+  freightImpact: string;
+  latestSignal: string;
+}
+
+interface FertilizerEntry {
+  product: string;
+  direction: "UP" | "DOWN" | "STABLE";
+  priceSignal: string;
+  supplyRisk: string;
+  actionNote: string;
+}
+
 interface DailyBrief {
   id: string;
   brief_date: string;
@@ -45,6 +63,8 @@ interface DailyBrief {
   prompt_tokens: number | null;
   completion_tokens: number | null;
   price_snapshot: PriceSnapshotEntry[] | null;
+  shipping_lane_snapshot: ShippingLaneEntry[] | null;
+  fertilizer_detail: FertilizerEntry[] | null;
 }
 
 interface EmailSubscription {
@@ -115,6 +135,8 @@ const PERSONA_META: Record<PersonaId, {
   focusLabel: string;
   focusDesc: string;
   sectors: string[];
+  showShippingLanes: boolean;
+  showFertilizer: boolean;
 }> = {
   general: {
     label: "Business Overview",
@@ -125,6 +147,8 @@ const PERSONA_META: Record<PersonaId, {
     focusLabel: "What This Means for Your Business",
     focusDesc: "Key impacts on UK operating costs and supply chains today.",
     sectors: ["energy", "fx", "freight"],
+    showShippingLanes: false,
+    showFertilizer: false,
   },
   trader: {
     label: "Commodity Trader",
@@ -135,6 +159,8 @@ const PERSONA_META: Record<PersonaId, {
     focusLabel: "Trader Focus — Price Signals & Crisis Context",
     focusDesc: "Energy, FX, and metals attribution. Review before the 07:00 standup.",
     sectors: ["energy", "fx", "metals"],
+    showShippingLanes: false,
+    showFertilizer: false,
   },
   agri: {
     label: "Agri Buyer",
@@ -145,6 +171,8 @@ const PERSONA_META: Record<PersonaId, {
     focusLabel: "Agri Buyer Focus — Grain, Fertilizer & Black Sea",
     focusDesc: "Wheat, fertilizer input costs, and supply corridor status.",
     sectors: ["agricultural", "fertilizer", "energy"],
+    showShippingLanes: true,
+    showFertilizer: true,
   },
   logistics: {
     label: "Logistics Director",
@@ -155,6 +183,8 @@ const PERSONA_META: Record<PersonaId, {
     focusLabel: "Logistics Focus — Shipping Lanes & Bunker Costs",
     focusDesc: "Red Sea status, rerouting signals, and freight rate context.",
     sectors: ["freight", "energy", "policy"],
+    showShippingLanes: true,
+    showFertilizer: false,
   },
   analyst: {
     label: "Risk Analyst",
@@ -165,6 +195,8 @@ const PERSONA_META: Record<PersonaId, {
     focusLabel: "Risk Analyst Focus — Full Sector Intelligence",
     focusDesc: "All monitored sectors with citable context for client reporting.",
     sectors: ["energy", "agricultural", "freight", "fertilizer", "metals", "fx", "policy"],
+    showShippingLanes: true,
+    showFertilizer: true,
   },
 };
 
@@ -340,6 +372,172 @@ function buildPriceTable(snapshot: PriceSnapshotEntry[], persona: PersonaId): st
     </table>`;
 }
 
+function buildShippingLaneBlock(lanes: ShippingLaneEntry[], accentColor: string): string {
+  if (!lanes || lanes.length === 0) return "";
+
+  const RAG_STYLES: Record<string, { dot: string; badgeBg: string; badgeText: string; border: string; bg: string; textColor: string }> = {
+    RED: {
+      dot: "#ef4444",
+      badgeBg: "#1c0a0a",
+      badgeText: "#f87171",
+      border: "#dc2626",
+      bg: "#1a0505",
+      textColor: "#fca5a5",
+    },
+    AMBER: {
+      dot: "#f59e0b",
+      badgeBg: "#1c1207",
+      badgeText: "#fbbf24",
+      border: "#d97706",
+      bg: "#1a1005",
+      textColor: "#fde68a",
+    },
+    GREEN: {
+      dot: "#10b981",
+      badgeBg: "#0a1a0f",
+      badgeText: "#34d399",
+      border: "#1e3b2e",
+      bg: "#061010",
+      textColor: "#6ee7b7",
+    },
+  };
+
+  const redCount = lanes.filter(l => l.status === "RED").length;
+  const amberCount = lanes.filter(l => l.status === "AMBER").length;
+
+  const laneRows = lanes.map((lane, i) => {
+    const s = RAG_STYLES[lane.status] ?? RAG_STYLES.GREEN;
+    const isLast = i === lanes.length - 1;
+    const showSignal = lane.status !== "GREEN" && lane.latestSignal;
+
+    return `
+    <tr>
+      <td style="padding:0;${isLast ? "" : "border-bottom:1px solid #1e293b;"}">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:${s.bg};border-left:3px solid ${s.border};">
+          <tr>
+            <td style="padding:10px 14px 4px;">
+              <table cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${s.dot};margin-right:7px;vertical-align:middle;"></span>
+                    <span style="font-size:12px;font-weight:700;color:#e2e8f0;vertical-align:middle;">${lane.lane}</span>
+                    <span style="font-size:10px;color:#475569;margin-left:8px;vertical-align:middle;">${lane.region}</span>
+                  </td>
+                  <td align="right">
+                    <span style="display:inline-block;background:${s.badgeBg};border:1px solid ${s.border};color:${s.badgeText};font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;">${lane.statusLabel}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 14px 4px 28px;">
+              <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">${lane.impact}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:2px 14px ${showSignal ? "4px" : "10px"} 28px;">
+              <p style="margin:0;font-size:11px;color:${s.textColor};font-weight:600;">${lane.freightImpact}</p>
+            </td>
+          </tr>
+          ${showSignal ? `
+          <tr>
+            <td style="padding:2px 14px 10px 28px;">
+              <p style="margin:0;font-size:11px;color:#475569;font-style:italic;line-height:1.4;">${lane.latestSignal}</p>
+            </td>
+          </tr>` : ""}
+        </table>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const summaryBadges = [
+    redCount > 0 ? `<span style="display:inline-block;background:#1c0a0a;border:1px solid #dc2626;color:#f87171;font-size:9px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:3px;margin-right:6px;">${redCount} DISRUPTED</span>` : "",
+    amberCount > 0 ? `<span style="display:inline-block;background:#1c1207;border:1px solid #d97706;color:#fbbf24;font-size:9px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:3px;margin-right:6px;">${amberCount} MONITORED</span>` : "",
+    (redCount === 0 && amberCount === 0) ? `<span style="display:inline-block;background:#0a1a0f;border:1px solid #1e3b2e;color:#34d399;font-size:9px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:3px;">ALL CLEAR</span>` : "",
+  ].filter(Boolean).join("");
+
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
+    <tr>
+      <td>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+          <tr>
+            <td style="vertical-align:middle;">
+              <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.12em;">&#9875;&nbsp; Shipping Lane Status</span>
+            </td>
+            <td align="right" style="vertical-align:middle;">
+              ${summaryBadges}
+            </td>
+          </tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #1e293b;border-radius:8px;overflow:hidden;">
+          ${laneRows}
+        </table>
+        <p style="margin:6px 0 0;font-size:9px;color:#334155;">RAG status AI-derived from live feed intelligence &middot; Verify with named carriers before routing decisions</p>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function buildFertilizerBlock(entries: FertilizerEntry[], accentColor: string): string {
+  if (!entries || entries.length === 0) return "";
+
+  const DIRECTION_STYLES: Record<string, { icon: string; color: string; bg: string; border: string }> = {
+    UP:     { icon: "&#9650;", color: "#f87171", bg: "#1c0a0a", border: "#dc2626" },
+    DOWN:   { icon: "&#9660;", color: "#34d399", bg: "#052e16", border: "#16a34a" },
+    STABLE: { icon: "&#8212;", color: "#94a3b8", bg: "#0f172a", border: "#1e293b" },
+  };
+
+  const entryRows = entries.map((entry, i) => {
+    const d = DIRECTION_STYLES[entry.direction] ?? DIRECTION_STYLES.STABLE;
+    const isLast = i === entries.length - 1;
+
+    return `
+    <tr>
+      <td style="padding:12px 16px;${isLast ? "" : "border-bottom:1px solid #1e293b;"}">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="vertical-align:top;padding-right:12px;width:1%;">
+              <div style="background:${d.bg};border:1px solid ${d.border};border-radius:4px;padding:4px 8px;text-align:center;white-space:nowrap;">
+                <span style="font-size:14px;color:${d.color};">${d.icon}</span>
+                <p style="margin:2px 0 0;font-size:8px;font-weight:800;color:${d.color};letter-spacing:0.1em;text-transform:uppercase;">${entry.direction}</p>
+              </div>
+            </td>
+            <td style="vertical-align:top;">
+              <p style="margin:0 0 3px;font-size:13px;font-weight:700;color:#e2e8f0;">${entry.product}</p>
+              <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;line-height:1.5;">${entry.priceSignal}</p>
+              ${entry.supplyRisk && entry.supplyRisk.length > 3 ? `<p style="margin:0 0 4px;font-size:11px;color:#64748b;line-height:1.5;">Supply risk: ${entry.supplyRisk}</p>` : ""}
+              ${entry.actionNote && entry.actionNote.length > 3 ? `<p style="margin:0;font-size:11px;font-weight:600;color:${accentColor};">${entry.actionNote}</p>` : ""}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`;
+  }).join("");
+
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+          <tr>
+            <td>
+              <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.12em;">&#127807;&nbsp; Fertilizer Product Intelligence</span>
+            </td>
+            <td align="right">
+              <span style="font-size:9px;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:0.1em;">Urea &middot; DAP &middot; Ammonia &middot; Potash</span>
+            </td>
+          </tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #1e293b;border-radius:8px;overflow:hidden;">
+          ${entryRows}
+        </table>
+      </td>
+    </tr>
+  </table>`;
+}
+
 const SECTOR_ICONS: Record<string, string> = {
   energy: "&#9889;",
   agricultural: "&#127806;",
@@ -447,6 +645,14 @@ function buildHtmlEmail(
 
   const compoundingBlock = brief.compounding_risk && brief.compounding_risk.length > 10
     ? buildCompoundingRiskBlock(brief.compounding_risk, meta.accentColor)
+    : "";
+
+  const shippingBlock = meta.showShippingLanes && brief.shipping_lane_snapshot && brief.shipping_lane_snapshot.length > 0
+    ? buildShippingLaneBlock(brief.shipping_lane_snapshot, meta.accentColor)
+    : "";
+
+  const fertilizerBlock = meta.showFertilizer && brief.fertilizer_detail && brief.fertilizer_detail.length > 0
+    ? buildFertilizerBlock(brief.fertilizer_detail, meta.accentColor)
     : "";
 
   const threeThingsBlocks = (brief.three_things ?? []).map((thing, i) => {
@@ -570,6 +776,22 @@ function buildHtmlEmail(
           </td>
         </tr>` : ""}
 
+        ${shippingBlock ? `
+        <!-- Shipping Lane Status -->
+        <tr>
+          <td style="background:#0a111e;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:22px 32px 24px;">
+            ${shippingBlock}
+          </td>
+        </tr>` : ""}
+
+        ${fertilizerBlock ? `
+        <!-- Fertilizer Product Intelligence -->
+        <tr>
+          <td style="background:#0d1627;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:22px 32px 24px;">
+            ${fertilizerBlock}
+          </td>
+        </tr>` : ""}
+
         ${threeThingsBlocks ? `
         <!-- 3 Things -->
         <tr>
@@ -654,7 +876,7 @@ function buildHtmlEmail(
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td>
-                  <p style="margin:0 0 10px;font-size:12px;color:#475569;">For live signals, conflict maps, shipping lane status, and full market data:</p>
+                  <p style="margin:0 0 10px;font-size:12px;color:#475569;">For live signals, conflict maps, full market charts and interactive action tracking:</p>
                   <a href="${appUrl}" style="display:inline-block;background:transparent;border:1px solid ${meta.accentColor};color:${meta.accentColor};font-size:12px;font-weight:700;text-decoration:none;padding:9px 20px;border-radius:6px;letter-spacing:-0.01em;">Open Live Dashboard &rarr;</a>
                 </td>
               </tr>
@@ -750,6 +972,29 @@ function buildTextEmail(brief: DailyBrief, recipientName: string, persona: Perso
     for (const p of priceRows) {
       const chg = p.change_pct != null ? ` (${p.change_pct >= 0 ? "+" : ""}${p.change_pct.toFixed(2)}%)` : "";
       lines.push(`${p.label}: ${formatPrice(p.price, p.currency)} ${p.currency}${chg}`);
+    }
+  }
+
+  if (meta.showShippingLanes && brief.shipping_lane_snapshot && brief.shipping_lane_snapshot.length > 0) {
+    lines.push("");
+    lines.push("SHIPPING LANE STATUS");
+    lines.push("-".repeat(40));
+    for (const lane of brief.shipping_lane_snapshot) {
+      lines.push(`${lane.lane} [${lane.status}] ${lane.statusLabel}`);
+      lines.push(`  ${lane.impact}`);
+      lines.push(`  ${lane.freightImpact}`);
+      if (lane.status !== "GREEN" && lane.latestSignal) lines.push(`  Signal: ${lane.latestSignal}`);
+    }
+  }
+
+  if (meta.showFertilizer && brief.fertilizer_detail && brief.fertilizer_detail.length > 0) {
+    lines.push("");
+    lines.push("FERTILIZER PRODUCT INTELLIGENCE");
+    lines.push("-".repeat(40));
+    for (const f of brief.fertilizer_detail) {
+      lines.push(`${f.product} [${f.direction}]: ${f.priceSignal}`);
+      if (f.supplyRisk) lines.push(`  Supply risk: ${f.supplyRisk}`);
+      if (f.actionNote) lines.push(`  Action: ${f.actionNote}`);
     }
   }
 

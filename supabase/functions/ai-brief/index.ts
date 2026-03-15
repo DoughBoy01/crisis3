@@ -521,6 +521,59 @@ function buildPersonaPrompt(
   lines.push("- EMPTY STRING for sectors with no content");
   lines.push("");
 
+  if (persona === "agri" || persona === "logistics" || persona === "analyst") {
+    lines.push("=== SHIPPING LANE STATUS (shipping_lane_snapshot) ===");
+    lines.push("Generate a RAG-status assessment for EACH of these 5 shipping lanes based on the news and conflict data above.");
+    lines.push("For each lane, derive status from: conflict zone headlines, shipping/freight RSS signals, geopolitical context.");
+    lines.push("Status rules:");
+    lines.push("  RED = Active disruption confirmed by headline or conflict zone at CRITICAL/HIGH risk level");
+    lines.push("  AMBER = Elevated risk, some signals present, monitor closely");
+    lines.push("  GREEN = No active disruption signals detected overnight");
+    lines.push("The 5 lanes to assess:");
+    lines.push("  1. Red Sea / Suez — Bab-el-Mandeb · Suez Canal — Houthi, Red Sea, diversion, Cape of Good Hope");
+    lines.push("  2. Strait of Hormuz — Persian Gulf · Iran — Iran, Hormuz, tanker seizure, Brent spike");
+    lines.push("  3. Black Sea / Odessa — Ukraine · Grain Corridor — Ukraine, Black Sea, grain corridor, Odessa, port");
+    lines.push("  4. Panama Canal — Central America — Panama, canal, water level, drought, capacity");
+    lines.push("  5. English Channel / Dover — UK-EU · North Sea — Dover, Calais, channel, port strike");
+    lines.push("freightImpact: specific cost/time impact string, e.g. '+10-14 days transit · +20-30% freight cost' or 'Standard war-risk premiums apply'");
+    lines.push("latestSignal: quote/paraphrase the most relevant overnight headline, or 'No disruption signals overnight'");
+    lines.push("");
+  }
+
+  if (persona === "agri" || persona === "analyst") {
+    lines.push("=== FERTILIZER PRODUCT INTELLIGENCE (fertilizer_detail) ===");
+    lines.push("Generate per-product intelligence for ALL 4 of these fertilizer products (always include all 4):");
+    lines.push("  1. Urea — nitrogen source, Russia/Middle East/China supply. Energy cost linked (natural gas).");
+    lines.push("  2. DAP/MAP — phosphate, Morocco/Russia/China supply. Geopolitical supply sensitivity.");
+    lines.push("  3. Ammonia — anhydrous/liquid, nitrate feedstock. Directly linked to natural gas price.");
+    lines.push("  4. Potash (MOP/SOP) — Belarus/Russia/Canada. Sanctions sensitivity, long-cycle supply.");
+    lines.push("For each product:");
+    lines.push("  direction: 'UP' (price/risk rising), 'DOWN' (price falling), 'STABLE' (no clear signal)");
+    lines.push("  priceSignal: 1-2 sentences: current price level, any move, and direct cause");
+    lines.push("  supplyRisk: 1 sentence on supply chain risk (sanctions, Black Sea, energy cost, or 'Low — no active disruption signals')");
+    lines.push("  actionNote: 1 concrete procurement instruction for an agri buyer, e.g. 'Forward buy urea before spring planting window closes' or 'No action required — monitor Black Sea corridor'");
+    lines.push("Cross-reference: fertilizer RSS headlines, Black Sea/Ukraine conflict signals, natural gas price (ammonia/urea feedstock), geopolitical context.");
+    lines.push("If no specific product data exists in feeds, derive from base rates and state reason.");
+    lines.push("");
+  }
+
+  const shippingLaneExample = (persona === "agri" || persona === "logistics" || persona === "analyst") ? `
+    shipping_lane_snapshot: [
+      { lane: "Red Sea / Suez", region: "Bab-el-Mandeb · Suez Canal", status: "RED | AMBER | GREEN", statusLabel: "ACTIVE DISRUPTION | ELEVATED RISK | NORMAL OPERATIONS", impact: "one sentence on route/cargo impact", freightImpact: "specific cost/time string", latestSignal: "headline or 'No disruption signals overnight'" },
+      { lane: "Strait of Hormuz", region: "Persian Gulf · Iran", status: "RED | AMBER | GREEN", statusLabel: "HIGH TENSION | MONITORED | OPEN", impact: "one sentence", freightImpact: "specific string", latestSignal: "headline or 'No disruption signals overnight'" },
+      { lane: "Black Sea / Odessa", region: "Ukraine · Grain Corridor", status: "RED | AMBER | GREEN", statusLabel: "DISRUPTED | CONSTRAINED | OPERATING", impact: "one sentence", freightImpact: "specific string", latestSignal: "headline or 'No disruption signals overnight'" },
+      { lane: "Panama Canal", region: "Central America", status: "AMBER | GREEN", statusLabel: "CAPACITY CONSTRAINED | NORMAL", impact: "one sentence", freightImpact: "specific string", latestSignal: "headline or 'No disruption signals overnight'" },
+      { lane: "English Channel / Dover", region: "UK-EU · North Sea", status: "AMBER | GREEN", statusLabel: "DISRUPTION SIGNAL | CLEAR", impact: "one sentence", freightImpact: "specific string", latestSignal: "headline or 'No disruption signals overnight'" }
+    ],` : "";
+
+  const fertilizerExample = (persona === "agri" || persona === "analyst") ? `
+    fertilizer_detail: [
+      { product: "Urea", direction: "UP | DOWN | STABLE", priceSignal: "1-2 sentences on price/cause", supplyRisk: "1 sentence", actionNote: "1 concrete instruction" },
+      { product: "DAP/MAP", direction: "UP | DOWN | STABLE", priceSignal: "1-2 sentences", supplyRisk: "1 sentence", actionNote: "1 concrete instruction" },
+      { product: "Ammonia", direction: "UP | DOWN | STABLE", priceSignal: "1-2 sentences", supplyRisk: "1 sentence", actionNote: "1 concrete instruction" },
+      { product: "Potash (MOP/SOP)", direction: "UP | DOWN | STABLE", priceSignal: "1-2 sentences", supplyRisk: "1 sentence", actionNote: "1 concrete instruction" }
+    ],` : "";
+
   lines.push("Return ONLY valid JSON:");
   lines.push(JSON.stringify({
     top_decision: {
@@ -567,7 +620,7 @@ function buildPersonaPrompt(
       "fx": "EMPTY STRING if not primary for this persona.",
       "policy": "EMPTY STRING if not primary for this persona."
     }
-  }));
+  }).replace("}", `${shippingLaneExample}${fertilizerExample}}`));
 
   return lines.join("\n");
 }
@@ -682,6 +735,8 @@ async function generateBriefForPersona(
     prompt_tokens: usage.prompt_tokens ?? null,
     completion_tokens: usage.completion_tokens ?? null,
     price_snapshot: buildPriceSnapshot(feeds),
+    shipping_lane_snapshot: (parsed.shipping_lane_snapshot as unknown[]) || null,
+    fertilizer_detail: (parsed.fertilizer_detail as unknown[]) || null,
   };
 
   const { data: inserted, error: insertErr } = await db
