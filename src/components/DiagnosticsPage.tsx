@@ -19,6 +19,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import DevControlsPanel from './DevControlsPanel';
 
 interface ServiceResult {
   id: string;
@@ -283,6 +284,11 @@ export default function DiagnosticsPage({ onBack }: DiagnosticsPageProps) {
               {running ? 'Running...' : 'Re-run All'}
             </button>
           </div>
+        </div>
+
+        {/* Dev Controls */}
+        <div className="mb-6">
+          <DevControlsPanel />
         </div>
 
         {/* Summary bar */}
