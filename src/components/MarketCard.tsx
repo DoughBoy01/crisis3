@@ -6,32 +6,11 @@ import { cn } from '@/lib/utils';
 import type { MarketItem, SectorId } from '../types';
 import SignalBadge from './SignalBadge';
 import SparkLine from './SparkLine';
+import PriceRangeChart from './PriceRangeChart';
 
 interface MarketCardProps {
   item: MarketItem;
   activeSector?: SectorId | null;
-}
-
-function PercentileBar({ rank }: { rank: number }) {
-  return (
-    <div className="relative h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
-      <div
-        className={cn(
-          'absolute left-0 top-0 h-full rounded-full transition-all duration-500',
-          rank >= 90 ? 'bg-red-500' :
-          rank >= 75 ? 'bg-orange-500' :
-          rank >= 50 ? 'bg-amber-500' :
-          rank >= 25 ? 'bg-emerald-500' :
-          'bg-sky-500',
-        )}
-        style={{ width: `${rank}%` }}
-      />
-      <div
-        className="absolute top-0 h-full w-px bg-white/30"
-        style={{ left: '50%' }}
-      />
-    </div>
-  );
 }
 
 export default function MarketCard({ item, activeSector }: MarketCardProps) {
@@ -121,7 +100,6 @@ export default function MarketCard({ item, activeSector }: MarketCardProps) {
           </span>
         </div>
 
-        {/* Historical percentile bar — always visible if data available */}
         {perc && (
           <div className="mt-3 space-y-1.5">
             <div className="flex items-center justify-between">
@@ -133,16 +111,15 @@ export default function MarketCard({ item, activeSector }: MarketCardProps) {
                 {perc.rank}th pct · {perc.label}
               </span>
             </div>
-            <PercentileBar rank={perc.rank} />
-            <div className="flex items-center justify-between text-[9px] text-muted-foreground/35 mt-0.5">
-              <span>P25: {item.currency === 'USX' ? `${perc.p25.toFixed(0)}¢` : `$${perc.p25.toFixed(0)}`}</span>
-              <span>Median: {item.currency === 'USX' ? `${perc.median.toFixed(0)}¢` : `$${perc.median.toFixed(0)}`}</span>
-              <span>P75: {item.currency === 'USX' ? `${perc.p75.toFixed(0)}¢` : `$${perc.p75.toFixed(0)}`}</span>
-            </div>
+            <PriceRangeChart
+              price={item.price}
+              perc={perc}
+              currency={item.currency}
+              unit={item.unit}
+            />
           </div>
         )}
 
-        {/* Seasonal demand pressure indicator */}
         {seasonal && seasonal.pressureLabel !== 'NORMAL' && (
           <div className="mt-2 flex items-start gap-1.5 rounded-md px-2 py-1.5 bg-slate-700/30 border border-slate-600/20">
             <Leaf size={9} className={cn('shrink-0 mt-0.5', seasonal.color)} />

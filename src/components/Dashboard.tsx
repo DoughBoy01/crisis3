@@ -22,6 +22,7 @@ import { useDailyBrief } from '@/hooks/useDailyBrief';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useHistoricalContext } from '@/hooks/useHistoricalContext';
 import { ChevronDown, ChevronUp, Shield, BarChart2, Newspaper, Filter } from 'lucide-react';
+import CommodityMiniChart from './CommodityMiniChart';
 
 const NEWS_SOURCES_LIST = [
   "BBC Business RSS",
@@ -504,17 +505,25 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {categories.map(cat => (
-                  <MarketSection
-                    key={cat.id}
-                    category={cat.id}
-                    label={cat.label}
-                    description={cat.description}
-                    items={marketItems.filter(i => i.category === cat.id)}
-                    activeSector={activeSector}
-                  />
-                ))}
+              <div className="space-y-5">
+                {marketItems.length > 0 && (
+                  <div className="rounded-xl border border-border/30 bg-slate-800/25 px-5 py-4">
+                    <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/40 mb-3">Session performance — all tracked instruments</p>
+                    <CommodityMiniChart items={marketItems} />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  {categories.map(cat => (
+                    <MarketSection
+                      key={cat.id}
+                      category={cat.id}
+                      label={cat.label}
+                      description={cat.description}
+                      items={marketItems.filter(i => i.category === cat.id)}
+                      activeSector={activeSector}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </CollapsibleSection>
