@@ -365,20 +365,6 @@ export default function Dashboard({ onOpenDiagnostics, onAdminLogin, onAdminSign
         onAdminSignOut={onAdminSignOut}
       />
 
-      {criticalAlerts.length > 0 && (
-        <div className="border-b border-red-900/60 bg-red-950/30">
-          <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-4">
-            <AlertBanner
-              alerts={criticalAlerts}
-              timezone={timezone}
-              variant="critical-strip"
-              isAdmin={isAdmin}
-              onDismissAlert={isAdmin ? handleAdminDeleteStory : undefined}
-              isDismissed={isDismissed}
-            />
-          </div>
-        </div>
-      )}
 
       {/* ── PERSONA + SECTOR FILTER BAR ── */}
       <div className="border-b border-border/30 bg-background/95 backdrop-blur-sm sticky top-14 z-40">
