@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Lock, AlertCircle, Loader } from 'lucide-react';
 
-const ADMIN_EMAIL = 'pm2120600@gmail.com';
-
 interface AdminLoginProps {
   onAuthenticated: () => void;
   onBack: () => void;
@@ -28,7 +26,8 @@ export default function AdminLogin({ onAuthenticated, onBack }: AdminLoginProps)
         return;
       }
 
-      if (data.user?.email !== ADMIN_EMAIL) {
+      const role = data.user?.app_metadata?.role;
+      if (role !== 'admin') {
         await supabase.auth.signOut();
         setError('Access denied. Admin only.');
         return;
