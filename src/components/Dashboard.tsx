@@ -46,6 +46,7 @@ const categories: { id: MarketCategory; label: string; description: string }[] =
   { id: 'fertilizer', label: 'Fertilizers', description: 'Urea · AN · Phosphate' },
   { id: 'agricultural', label: 'Agricultural', description: 'Cereals · Oilseeds' },
   { id: 'metals', label: 'Metals', description: 'Steel · Aluminium' },
+  { id: 'fx', label: 'FX & Indices', description: 'GBP/USD · GBP/EUR · USD Index' },
 ];
 
 const SUBSCRIPTION_COST_ANNUAL = 588;
