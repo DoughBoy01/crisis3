@@ -410,29 +410,39 @@ async function fetchAlJazeeraRSS(): Promise<Record<string, unknown>> {
 async function fetchFarmersWeeklyRSS(): Promise<Record<string, unknown>> {
   const fetchTime = nowISO();
   const keywords = ["fertiliser", "fertilizer", "urea", "supply", "price", "cost", "nitrogen", "ammonia", "wheat", "barley", "rapeseed", "crop", "harvest"];
-  try {
-    const res = await fetchWithTimeout("https://www.fwi.co.uk/feed");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const xml = await res.text();
-    const all = parseRSS(xml);
-    const filtered = filterByKeywords(all, keywords).slice(0, 5);
-    const newestPub = filtered.length > 0 ? filtered[0].published : null;
-    const dataAge = newestPub ? Math.round((Date.now() - new Date(newestPub).getTime()) / 60000) : null;
-    const age = ageMinutes(fetchTime);
-    return {
-      source_name: "Farmers Weekly RSS",
-      success: true,
-      error: null,
-      fetch_time_gmt: fetchTime,
-      items: filtered,
-      newest_item_published: newestPub,
-      data_age_minutes: dataAge ?? age,
-      accuracy_score: feedAccuracyScore(age, dataAge, 1440, true),
-      note: "Farmers Weekly — UK agricultural industry news",
-    };
-  } catch (e) {
-    return { source_name: "Farmers Weekly RSS", success: false, error: String(e), fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
+  const urls = [
+    "https://www.fwi.co.uk/arable/feed",
+    "https://www.fwi.co.uk/feed",
+  ];
+  let lastError = "All Farmers Weekly RSS URLs failed";
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) { lastError = `HTTP ${res.status} from ${url}`; continue; }
+      const xml = await res.text();
+      const all = parseRSS(xml);
+      if (all.length === 0) { lastError = `No items parsed from ${url}`; continue; }
+      const filtered = filterByKeywords(all, keywords).slice(0, 5);
+      const items = filtered.length > 0 ? filtered : all.slice(0, 5);
+      const newestPub = items.length > 0 ? items[0].published : null;
+      const dataAge = newestPub ? Math.round((Date.now() - new Date(newestPub).getTime()) / 60000) : null;
+      const age = ageMinutes(fetchTime);
+      return {
+        source_name: "Farmers Weekly RSS",
+        success: true,
+        error: null,
+        fetch_time_gmt: fetchTime,
+        items,
+        newest_item_published: newestPub,
+        data_age_minutes: dataAge ?? age,
+        accuracy_score: feedAccuracyScore(age, dataAge, 1440, true),
+        note: `Farmers Weekly — UK agricultural industry news (via ${url})`,
+      };
+    } catch (e) {
+      lastError = String(e);
+    }
   }
+  return { source_name: "Farmers Weekly RSS", success: false, error: lastError, fetch_time_gmt: fetchTime, items: [], data_age_minutes: null, accuracy_score: 0 };
 }
 
 async function fetchBankOfEnglandRSS(): Promise<Record<string, unknown>> {
