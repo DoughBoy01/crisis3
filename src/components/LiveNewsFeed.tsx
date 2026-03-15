@@ -109,6 +109,51 @@ function formatPublished(pub: string, timezone = "Europe/London"): { relative: s
   }
 }
 
+const RELEVANCE_KEYWORDS: string[] = [
+  'oil', 'crude', 'brent', 'gas', 'lng', 'wheat', 'grain', 'corn', 'soy', 'fertilizer',
+  'fertiliser', 'freight', 'shipping', 'container', 'supply chain', 'inflation', 'tariff',
+  'sanctions', 'embargo', 'conflict', 'war', 'attack', 'disruption', 'shortage', 'harvest',
+  'energy', 'steel', 'aluminium', 'gbp', 'sterling', 'dollar', 'interest rate', 'red sea',
+  'black sea', 'suez', 'panama', 'houthi', 'ukraine', 'russia', 'middle east', 'opec',
+  'commodity', 'price', 'cost', 'procurement', 'import', 'export',
+];
+
+function scoreRelevance(title: string, summary: string): number {
+  const text = (title + ' ' + summary).toLowerCase();
+  let score = 0;
+  for (const kw of RELEVANCE_KEYWORDS) {
+    if (text.includes(kw)) score += kw.length > 6 ? 3 : 1;
+  }
+  return score;
+}
+
+function normaliseTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60);
+}
+
+function deduplicateItems<T extends { title: string; ageMinutes: number | null; accuracyScore: number }>(items: T[]): T[] {
+  const seen = new Map<string, T>();
+  for (const item of items) {
+    const key = normaliseTitle(item.title);
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, item);
+    } else {
+      const itemAge = item.ageMinutes ?? Infinity;
+      const existingAge = existing.ageMinutes ?? Infinity;
+      if (item.accuracyScore > existing.accuracyScore || itemAge < existingAge) {
+        seen.set(key, item);
+      }
+    }
+  }
+  return Array.from(seen.values());
+}
+
 interface NewsItem {
   title: string;
   summary: string;
@@ -117,6 +162,7 @@ interface NewsItem {
   sourceName: string;
   accuracyScore: number;
   ageMinutes: number | null;
+  relevanceScore: number;
 }
 
 function getItems(feeds: FeedPayload | null): NewsItem[] {
@@ -135,16 +181,28 @@ function getItems(feeds: FeedPayload | null): NewsItem[] {
         sourceName: src.source_name,
         accuracyScore: src.accuracy_score,
         ageMinutes: pubAge,
+        relevanceScore: scoreRelevance(item.title ?? '', item.summary ?? ''),
       });
     }
   }
-  return items
+
+  const sorted = items.sort((a, b) => {
+    const ta = a.published ? (parseDate(a.published)?.getTime() ?? 0) : 0;
+    const tb = b.published ? (parseDate(b.published)?.getTime() ?? 0) : 0;
+    return tb - ta;
+  });
+
+  const deduped = deduplicateItems(sorted);
+
+  return deduped
     .sort((a, b) => {
+      const relevanceDiff = b.relevanceScore - a.relevanceScore;
+      if (Math.abs(relevanceDiff) >= 3) return relevanceDiff;
       const ta = a.published ? (parseDate(a.published)?.getTime() ?? 0) : 0;
       const tb = b.published ? (parseDate(b.published)?.getTime() ?? 0) : 0;
       return tb - ta;
     })
-    .slice(0, 14);
+    .slice(0, 16);
 }
 
 function getSourceStatuses(feeds: FeedPayload | null) {
@@ -170,6 +228,11 @@ export default function LiveNewsFeed({ feeds, loading, error, onRefresh, timezon
         <Newspaper size={15} className="text-sky-400" />
         <h2 className="text-sm font-bold text-slate-200 tracking-wide uppercase">Live Intelligence Feeds</h2>
         <div className="ml-auto flex items-center gap-2">
+          {items.length > 0 && (
+            <span className="text-[10px] text-muted-foreground/50 hidden sm:inline font-mono">
+              {items.length} unique · ranked by relevance
+            </span>
+          )}
           {feeds && (
             <span className="text-xs text-muted-foreground hidden sm:inline">
               {new Date(feeds.fetched_at).toLocaleTimeString("en-GB", {
@@ -292,6 +355,11 @@ export default function LiveNewsFeed({ feeds, loading, error, onRefresh, timezon
                             item.accuracyScore >= 50 ? "text-amber-500/50" : "text-orange-500/50"
                           )}>
                             {item.accuracyScore}% confidence
+                          </span>
+                        )}
+                        {item.relevanceScore >= 6 && (
+                          <span className="text-[10px] text-sky-500/60 font-medium">
+                            high relevance
                           </span>
                         )}
                       </div>

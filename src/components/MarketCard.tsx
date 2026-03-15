@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Star, BarChart3, Leaf } from 'lucide-react';
+import { BarChart2, ExternalLink, Star, BarChart3, Leaf } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,7 @@ import type { MarketItem, SectorId } from '../types';
 import SignalBadge from './SignalBadge';
 import SparkLine from './SparkLine';
 import PriceRangeChart from './PriceRangeChart';
+import PriceChartModal from './PriceChartModal';
 
 interface MarketCardProps {
   item: MarketItem;
@@ -16,6 +17,7 @@ interface MarketCardProps {
 
 export default function MarketCard({ item, activeSector, timezone = 'Europe/London' }: MarketCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
   const positive = item.changePercent24h >= 0;
   const isRelevant = activeSector ? item.relevantSectors.includes(activeSector) : false;
   const isDimmed = activeSector ? !isRelevant : false;
@@ -23,6 +25,7 @@ export default function MarketCard({ item, activeSector, timezone = 'Europe/Lond
   const seasonal = item.seasonalContext;
 
   return (
+    <>
     <Card
       className={cn(
         'bg-slate-800/60 overflow-hidden transition-all duration-200 hover:border-slate-500/60 cursor-pointer',
@@ -58,7 +61,14 @@ export default function MarketCard({ item, activeSector, timezone = 'Europe/Lond
             </div>
             <p className="text-sm font-semibold text-slate-200 leading-tight truncate">{item.name}</p>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={e => { e.stopPropagation(); setChartOpen(true); }}
+              className="text-muted-foreground/30 hover:text-sky-400 transition-colors p-0.5 rounded"
+              title="Open price chart"
+            >
+              <BarChart2 size={13} />
+            </button>
             <SparkLine data={item.history} positive={positive} />
           </div>
         </div>
@@ -98,9 +108,13 @@ export default function MarketCard({ item, activeSector, timezone = 'Europe/Lond
           <div className={cn('text-xs', positive ? 'text-emerald-500/60' : 'text-red-500/60')}>
             7-day: {item.changeWeeklyPercent >= 0 ? '+' : ''}{item.changeWeeklyPercent.toFixed(2)}%
           </div>
-          <span className="text-muted-foreground">
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </span>
+          <button
+            onClick={e => { e.stopPropagation(); setChartOpen(true); }}
+            className="text-[10px] text-muted-foreground/30 hover:text-sky-400 transition-colors flex items-center gap-1"
+          >
+            <BarChart2 size={10} />
+            chart
+          </button>
         </div>
 
         {perc && (
@@ -162,5 +176,10 @@ export default function MarketCard({ item, activeSector, timezone = 'Europe/Lond
         )}
       </CardContent>
     </Card>
+
+    {chartOpen && (
+      <PriceChartModal item={item} onClose={() => setChartOpen(false)} />
+    )}
+    </>
   );
 }

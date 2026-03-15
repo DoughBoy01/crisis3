@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { CheckSquare, Package, Clock, PoundSterling, CheckCircle2, Circle, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { CheckSquare, Package, Clock, PoundSterling, CheckCircle2, Circle, ChevronDown, ChevronUp, Sparkles, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { ActionItem, SectorId } from '../types';
 import SignalBadge from './SignalBadge';
+import { useActionCompletions } from '@/hooks/useActionCompletions';
 
 interface ActionPanelProps {
   actions: ActionItem[];
@@ -16,7 +17,7 @@ interface ActionPanelProps {
 const signalOrder: Record<string, number> = { URGENT: 0, BUY: 1, WATCH: 2, HOLD: 3 };
 
 export default function ActionPanel({ actions, activeSector, aiRationale, loading }: ActionPanelProps) {
-  const [checked, setChecked] = useState<string[]>([]);
+  const { completed: checked, loading: completionsLoading, toggle } = useActionCompletions();
   const [expanded, setExpanded] = useState<string[]>([]);
 
   const filtered = (activeSector
@@ -26,10 +27,6 @@ export default function ActionPanel({ actions, activeSector, aiRationale, loadin
 
   const done = filtered.filter(a => checked.includes(a.id)).length;
   const remaining = filtered.length - done;
-
-  function toggle(id: string) {
-    setChecked(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  }
 
   function toggleExpanded(id: string) {
     setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -41,6 +38,11 @@ export default function ActionPanel({ actions, activeSector, aiRationale, loadin
         <CheckSquare size={14} className="text-sky-400" />
         <h2 className="text-xs font-bold text-slate-200 tracking-widest uppercase">Morning Action List</h2>
         <div className="ml-auto flex items-center gap-2">
+          {completionsLoading ? (
+            <RotateCcw size={10} className="text-muted-foreground/40 animate-spin" />
+          ) : (
+            <span className="text-[10px] text-muted-foreground/40 font-mono" title="Completions saved across sessions">saved</span>
+          )}
           {done > 0 && (
             <span className="text-[10px] text-emerald-400 font-mono">{done} done</span>
           )}
@@ -96,8 +98,9 @@ export default function ActionPanel({ actions, activeSector, aiRationale, loadin
                     {/* Checkbox */}
                     <button
                       onClick={() => toggle(action.id)}
-                      className="shrink-0 mt-0.5 transition-colors"
+                      className="shrink-0 mt-0.5 transition-colors disabled:opacity-50"
                       title={isDone ? 'Mark incomplete' : 'Mark complete'}
+                      disabled={completionsLoading}
                     >
                       {isDone
                         ? <CheckCircle2 size={18} className="text-emerald-400" />
