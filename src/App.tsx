@@ -20,8 +20,12 @@ function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const role = session?.user?.app_metadata?.role;
-      setIsAdmin(role === 'admin');
+      if (!session) {
+        setIsAdmin(false);
+        return;
+      }
+      const role = session.user?.app_metadata?.role;
+      if (role === 'admin') setIsAdmin(true);
     });
 
     return () => subscription.unsubscribe();
