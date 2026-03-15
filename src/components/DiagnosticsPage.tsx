@@ -592,6 +592,9 @@ const PERSONA_LABELS: Record<string, string> = {
   analyst: 'Supply Chain Analyst',
   farmer: 'Farmer / Grower',
   executive: 'Executive / C-Suite',
+  agri: 'Agri Buyer',
+  general: 'General',
+  unset: 'No Persona',
 };
 
 function SubscribersByCategory({ subscribers }: { subscribers: Subscriber[] }) {
