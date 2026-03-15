@@ -59,7 +59,11 @@ const PERSONAS: { id: PersonaId; label: string; desc: string; icon: React.Elemen
   },
 ];
 
-export default function EmailSubscribe() {
+interface EmailSubscribeProps {
+  variant?: 'header' | 'hero';
+}
+
+export default function EmailSubscribe({ variant = 'header' }: EmailSubscribeProps) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -105,14 +109,32 @@ export default function EmailSubscribe() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded border border-border/50 bg-slate-800/40 hover:bg-slate-700/50 hover:border-sky-500/40 transition-colors text-muted-foreground/60 hover:text-sky-400"
-        title="Subscribe to morning brief email"
-      >
-        <Mail size={11} />
-        <span className="text-[10px] hidden lg:inline font-medium">Email Brief</span>
-      </button>
+      {variant === 'hero' ? (
+        <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-sky-500/20 hover:shadow-sky-400/25 w-full sm:w-auto"
+          >
+            <Mail size={14} />
+            Get the brief
+          </button>
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center justify-center gap-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-600/60 hover:border-slate-500/80 text-slate-300 font-semibold text-sm px-6 py-3.5 rounded-xl transition-all duration-200 w-full sm:w-auto"
+          >
+            Choose my edition
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded border border-border/50 bg-slate-800/40 hover:bg-slate-700/50 hover:border-sky-500/40 transition-colors text-muted-foreground/60 hover:text-sky-400"
+          title="Subscribe to morning brief email"
+        >
+          <Mail size={11} />
+          <span className="text-[10px] hidden lg:inline font-medium">Email Brief</span>
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={handleClose}>

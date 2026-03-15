@@ -1,15 +1,9 @@
-import { useState } from 'react';
-import { ArrowRight, Bell, Check, Loader2, Mail, Moon, Newspaper, ShieldAlert, Zap } from 'lucide-react';
+import { ArrowRight, Bell, Mail, Moon, Newspaper, ShieldAlert, Zap } from 'lucide-react';
+import EmailSubscribe from './EmailSubscribe';
 
 interface HomePageProps {
   onEnter: () => void;
 }
-
-const SUBSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-morning-brief`;
-const HEADERS = {
-  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-  'Content-Type': 'application/json',
-};
 
 const timeline = [
   {
@@ -75,68 +69,7 @@ const editions = [
 ];
 
 function HeroSubscribeForm() {
-  const [email, setEmail] = useState('');
-  const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [message, setMessage] = useState('');
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setState('loading');
-    try {
-      const res = await fetch(SUBSCRIBE_URL, {
-        method: 'POST',
-        headers: HEADERS,
-        body: JSON.stringify({ action: 'subscribe', email: email.trim(), persona: 'general' }),
-      });
-      const json = await res.json();
-      if (!res.ok || json.error) throw new Error(json.error ?? `Error ${res.status}`);
-      setState('success');
-      setMessage("You're subscribed. Tomorrow's brief arrives at 07:00 UTC.");
-    } catch (err) {
-      setState('error');
-      setMessage(String(err).replace('Error: ', ''));
-    }
-  }
-
-  if (state === 'success') {
-    return (
-      <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-5 py-4 max-w-md mx-auto">
-        <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
-          <Check size={14} className="text-emerald-400" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-emerald-300">Subscribed</p>
-          <p className="text-xs text-slate-400 mt-0.5">{message}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-      <div className="flex-1">
-        <input
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="you@company.com"
-          required
-          disabled={state === 'loading'}
-          className="w-full px-4 py-3.5 rounded-xl bg-slate-800/80 border border-slate-600/60 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/20 transition-colors"
-        />
-        {state === 'error' && <p className="text-xs text-red-400 mt-1.5 px-1">{message}</p>}
-      </div>
-      <button
-        type="submit"
-        disabled={state === 'loading' || !email.trim()}
-        className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-bold text-sm px-6 py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-sky-500/20 hover:shadow-sky-400/25 whitespace-nowrap"
-      >
-        {state === 'loading' ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-        {state === 'loading' ? 'Subscribing…' : 'Get the brief'}
-      </button>
-    </form>
-  );
+  return <EmailSubscribe variant="hero" />;
 }
 
 export default function HomePage({ onEnter }: HomePageProps) {
