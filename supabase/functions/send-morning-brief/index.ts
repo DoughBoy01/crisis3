@@ -25,6 +25,8 @@ interface DailyBrief {
   three_things: string[];
   action_rationale: Record<string, string>;
   geopolitical_context: string;
+  procurement_actions: string[];
+  market_outlook: string;
   model: string;
   prompt_tokens: number | null;
   completion_tokens: number | null;
@@ -229,10 +231,10 @@ function buildHtmlEmail(
 
   const threeThingsRows = (brief.three_things ?? []).map((thing, i) => `
     <tr>
-      <td style="padding:7px 0;vertical-align:top;width:32px;">
-        <span style="display:inline-block;width:22px;height:22px;background:${meta.accentColor};color:#0f172a;font-size:11px;font-weight:800;border-radius:50%;text-align:center;line-height:22px;">${i + 1}</span>
+      <td style="padding:10px 0;vertical-align:top;width:36px;">
+        <span style="display:inline-block;width:26px;height:26px;background:${meta.accentColor};color:#0f172a;font-size:12px;font-weight:800;border-radius:50%;text-align:center;line-height:26px;">${i + 1}</span>
       </td>
-      <td style="padding:7px 0 7px 4px;font-size:13px;color:#cbd5e1;line-height:1.6;">${thing}</td>
+      <td style="padding:10px 0 10px 8px;font-size:14px;color:#e2e8f0;line-height:1.7;">${thing}</td>
     </tr>`).join("");
 
   const personaTagHtml = persona !== "general"
@@ -329,14 +331,40 @@ function buildHtmlEmail(
           </td>
         </tr>` : ""}
 
+        ${(brief.procurement_actions ?? []).length > 0 ? `
+        <!-- Procurement Actions -->
+        <tr>
+          <td style="background:#0a111e;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:20px 32px 24px;">
+            <p style="margin:0 0 14px;font-size:10px;font-weight:700;color:${meta.accentColor};text-transform:uppercase;letter-spacing:0.12em;">Recommended Actions</p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${(brief.procurement_actions ?? []).map((action, i) => `
+              <tr>
+                <td style="padding:9px 0;vertical-align:top;width:28px;">
+                  <span style="display:inline-block;width:20px;height:20px;background:#1e293b;border:1px solid ${meta.accentColor};color:${meta.accentColor};font-size:10px;font-weight:800;border-radius:4px;text-align:center;line-height:20px;">${i + 1}</span>
+                </td>
+                <td style="padding:9px 0 9px 10px;font-size:13px;color:#cbd5e1;line-height:1.65;border-bottom:1px solid #1e293b;">${action}</td>
+              </tr>`).join("")}
+            </table>
+          </td>
+        </tr>` : ""}
+
+        ${brief.market_outlook ? `
+        <!-- Market Outlook -->
+        <tr>
+          <td style="background:#0d1627;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:20px 32px 24px;">
+            <p style="margin:0 0 10px;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.12em;">What to Watch Today — 07:00–17:00 GMT</p>
+            <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.7;">${brief.market_outlook}</p>
+          </td>
+        </tr>` : ""}
+
         <!-- CTA -->
         <tr>
-          <td style="background:#0a111e;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:24px 32px;">
+          <td style="background:#0a111e;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};border-top:1px solid #1e293b;padding:20px 32px;">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td>
-                  <p style="margin:0 0 12px;font-size:13px;color:#64748b;">View live signals, conflict maps, and full market data on the dashboard.</p>
-                  <a href="${appUrl}" style="display:inline-block;background:${meta.accentColor};color:#0f172a;font-size:13px;font-weight:700;text-decoration:none;padding:11px 22px;border-radius:7px;letter-spacing:-0.01em;">Open Dashboard &rarr;</a>
+                  <p style="margin:0 0 10px;font-size:12px;color:#475569;">For live signals, conflict maps, shipping lane status, and full market data:</p>
+                  <a href="${appUrl}" style="display:inline-block;background:transparent;border:1px solid ${meta.accentColor};color:${meta.accentColor};font-size:12px;font-weight:700;text-decoration:none;padding:9px 20px;border-radius:6px;letter-spacing:-0.01em;">Open Live Dashboard &rarr;</a>
                 </td>
               </tr>
             </table>
@@ -422,6 +450,21 @@ function buildTextEmail(brief: DailyBrief, recipientName: string, persona: Perso
     lines.push(meta.focusLabel.toUpperCase());
     lines.push("-".repeat(40));
     relevantRows.forEach(r => { lines.push(r); lines.push(""); });
+  }
+
+  const actions = brief.procurement_actions ?? [];
+  if (actions.length > 0) {
+    lines.push("");
+    lines.push("RECOMMENDED ACTIONS");
+    lines.push("-".repeat(40));
+    actions.forEach((a, i) => { lines.push(`${i + 1}. ${a}`); lines.push(""); });
+  }
+
+  if (brief.market_outlook) {
+    lines.push("");
+    lines.push("WHAT TO WATCH TODAY (07:00–17:00 GMT)");
+    lines.push("-".repeat(40));
+    lines.push(brief.market_outlook);
   }
 
   lines.push("=".repeat(56));

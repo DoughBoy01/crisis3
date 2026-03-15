@@ -11,6 +11,8 @@ export interface DailyBrief {
   three_things: string[];
   action_rationale: Record<string, string>;
   geopolitical_context: string;
+  procurement_actions: string[];
+  market_outlook: string;
   model: string;
   prompt_tokens: number | null;
   completion_tokens: number | null;

@@ -48,6 +48,8 @@ interface DailyBrief {
   three_things: string[];
   action_rationale: Record<string, string>;
   geopolitical_context: string;
+  procurement_actions: string[];
+  market_outlook: string;
   model: string;
   prompt_tokens: number | null;
   completion_tokens: number | null;
@@ -342,29 +344,63 @@ function buildPrompt(
   lines.push(newsSection);
   lines.push("");
   lines.push("=== YOUR TASK ===");
+  lines.push("WRITING STANDARDS — READ BEFORE WRITING ANYTHING:");
+  lines.push("- Write as a senior analyst briefing a CFO or CPO. Be specific, citable, and direct. No hedging.");
+  lines.push("- Always include specific numbers: exact prices, exact % changes, exact basis points, named sources.");
+  lines.push("- Reference historical percentile position when available (e.g. 'Wheat at 83rd percentile vs 10-yr history — near multi-year highs').");
+  lines.push("- Reference seasonal context when relevant (e.g. 'Corn in HIGH seasonal demand period, amplifying the +1.8% overnight move').");
+  lines.push("- Reference conflict zone baselines when conflict news is present (e.g. 'Black Sea events this week exceed the baseline of 3/week — elevated risk').");
+  lines.push("- For procurement implications, name the specific input cost impact: 'Bread/flour buyers: +£X/tonne estimated input cost increase'.");
+  lines.push("- For FX, always state the import cost implication explicitly: 'GBP/USD down 0.4% = approximately 0.4% rise in USD-denominated import costs'.");
+  lines.push("");
   lines.push("CRITICAL RULES FOR action_rationale:");
-  lines.push("- Only write a value for a sector if you have ACTUAL data for it: a real price move with a non-zero percentage change, OR a news headline directly about that sector from the news feeds above.");
-  lines.push("- If you have no price move data AND no relevant news headline for a sector, return an EMPTY STRING \"\" for that sector. DO NOT write filler phrases like 'No significant overnight movements reported' or 'Quiet overnight'. Leave it blank.");
-  lines.push("- A price that is unchanged (0.00% change) with no related news = empty string.");
-  lines.push("- Only include geopolitical_context if there is a specific named conflict or policy event in the news feeds above. Otherwise return empty string.");
+  lines.push("- Each sector value must be a FULL PARAGRAPH of 3-5 sentences minimum when data exists.");
+  lines.push("- Sentence 1: What happened (specific price/move/event).");
+  lines.push("- Sentence 2: Historical context (percentile, seasonal, baseline comparison).");
+  lines.push("- Sentence 3: Named supply chain or procurement implication.");
+  lines.push("- Sentence 4 (optional): Forward-looking risk or what to watch.");
+  lines.push("- Only write a value for a sector if you have ACTUAL data: a real price move with a non-zero % OR a relevant news headline.");
+  lines.push("- If you have no price move data AND no relevant headline for a sector, return EMPTY STRING \"\". Never write filler.");
+  lines.push("- A price unchanged (0.00%) with no related news = empty string.");
+  lines.push("- Only include geopolitical_context if there is a specific named conflict or policy event. Otherwise empty string.");
+  lines.push("");
+  lines.push("CRITICAL RULES FOR three_things:");
+  lines.push("- Each of the 3 items must be 2-3 sentences. Lead with the specific data point, follow with the procurement/business implication.");
+  lines.push("- These must be self-contained — the reader should not need to go anywhere else to understand the significance.");
+  lines.push("");
+  lines.push("CRITICAL RULES FOR procurement_actions:");
+  lines.push("- Provide 2-4 specific, actionable recommendations based on the overnight data.");
+  lines.push("- Each action must reference a specific market or event and give a concrete instruction.");
+  lines.push("- Example: 'Lock in Q3 wheat contracts this week — prices at 83rd percentile vs 10-yr history and Black Sea risk elevated'.");
+  lines.push("- If there is nothing actionable (flat, quiet night), return an empty array.");
+  lines.push("");
+  lines.push("CRITICAL RULES FOR market_outlook:");
+  lines.push("- 2-3 sentences on what to watch during the coming trading session (07:00-17:00 GMT).");
+  lines.push("- Name specific data releases, scheduled events, or price levels to monitor.");
+  lines.push("- EMPTY STRING if nothing notable is scheduled or signalled.");
   lines.push("");
   lines.push("Return ONLY valid JSON with this exact structure:");
   lines.push(JSON.stringify({
-    narrative: "2-4 sentence plain-English summary of what happened overnight. Lead with the biggest market move or geopolitical development. Reference historical percentile position if relevant. Reference whether conflict news represents escalation above baseline norms.",
+    narrative: "3-5 sentence plain-English summary of the overnight session. Lead with the single biggest market move or geopolitical development. Include exact prices and % changes. Reference historical percentile position for any extreme moves. State whether conflict news represents escalation above baseline norms. End with the net procurement implication.",
     three_things: [
-      "The single most important thing to know today (max 20 words)",
-      "Second most important thing (max 20 words)",
-      "Third most important thing (max 20 words)"
+      "Specific data point (price, event, name) — follow immediately with the procurement/business implication in 1-2 additional sentences. Self-contained. No dashboard needed.",
+      "Second most important (same format — data + implication + context). 2-3 sentences total.",
+      "Third most important (same format). 2-3 sentences total."
     ],
-    geopolitical_context: "1-3 sentences on geopolitical developments affecting commodity supply chains. Reference specific conflict zones and whether activity is elevated above historical baselines. EMPTY STRING if no specific geopolitical event in the news feeds.",
+    geopolitical_context: "2-4 sentences. Name specific conflict zones, specific events, specific commodity exposure. State whether current event frequency is above or below historical baseline. State the supply chain corridor at risk and which commodities are most exposed. EMPTY STRING if no specific geopolitical event.",
+    procurement_actions: [
+      "Action 1: specific instruction referencing specific market/price/event",
+      "Action 2: specific instruction referencing specific market/price/event"
+    ],
+    market_outlook: "2-3 sentences on what to watch today (07:00-17:00 GMT). Name specific data releases, price thresholds, or events. EMPTY STRING if nothing notable scheduled.",
     action_rationale: {
-      "energy": "ONLY if Brent, WTI, Nat Gas, Heating Oil, or Gasoline moved meaningfully overnight OR energy headlines appeared in feeds: write what happened and why it matters for procurement. Include historical percentile context if extreme. EMPTY STRING if no data.",
-      "agricultural": "ONLY if Wheat, Corn, Soybeans, or Rice moved meaningfully OR USDA/World Grain/Farmers Weekly headlines appeared: write what happened and why it matters. EMPTY STRING if no data.",
-      "freight": "ONLY if BDI, container rates, or shipping headlines appeared in Shipping/Freight RSS: write what happened and why it matters. EMPTY STRING if no data.",
-      "fertilizer": "ONLY if urea, DAP, ammonia, potash, or nitrogen products were mentioned in Fertilizer RSS OR had a price move: write what happened. EMPTY STRING if no data.",
-      "metals": "ONLY if Gold, Silver, or Copper moved meaningfully (>0.3%) OR metals headlines appeared in Metals RSS: write what it signals. EMPTY STRING if no data.",
-      "fx": "ONLY if GBP/USD or GBP/EUR moved by at least 0.1% OR Bank of England/OBR news appeared: write what the move means for import costs. EMPTY STRING if FX was flat and no policy news.",
-      "policy": "ONLY if Bank of England, OBR, or fiscal policy news explicitly appeared in the feeds above: write what it means for procurement. EMPTY STRING if no policy news."
+      "energy": "ONLY if Brent, WTI, Nat Gas, Heating Oil, or Gasoline moved meaningfully OR energy headlines appeared. 3-5 sentences: (1) exact price and % move, (2) historical percentile context, (3) procurement impact for energy/fuel buyers, (4) forward risk. EMPTY STRING if no data.",
+      "agricultural": "ONLY if Wheat, Corn, Soybeans, or Rice moved meaningfully OR USDA/World Grain/Farmers Weekly headlines appeared. 3-5 sentences: (1) exact prices and % moves for each grain that moved, (2) historical percentile and seasonal context, (3) named procurement impact (flour, feed, food manufacturing costs), (4) key drivers. EMPTY STRING if no data.",
+      "freight": "ONLY if BDI, container rates, or shipping headlines appeared. 3-5 sentences: (1) BDI level and move if available, (2) specific shipping lane status (Red Sea, Cape Horn rerouting etc.), (3) impact on lead times and landed cost for importers, (4) bunker cost context. EMPTY STRING if no data.",
+      "fertilizer": "ONLY if urea, DAP, ammonia, potash, or nitrogen mentioned in Fertilizer RSS OR had a price move. 3-5 sentences: (1) specific product(s) and price/event, (2) seasonal application relevance (spring/autumn), (3) implication for crop input costs and planting economics. EMPTY STRING if no data.",
+      "metals": "ONLY if Gold, Silver, or Copper moved meaningfully (>0.3%) OR metals headlines appeared. 3-5 sentences: (1) exact price and % move, (2) whether gold/silver move signals risk-off sentiment alongside geopolitical news, (3) copper as industrial demand indicator, (4) procurement relevance for packaging, electrical, construction buyers. EMPTY STRING if no data.",
+      "fx": "ONLY if GBP/USD or GBP/EUR moved by at least 0.1% OR Bank of England/OBR news appeared. 3-5 sentences: (1) exact rates and % moves, (2) quantified import cost impact (e.g. '0.4% GBP/USD fall = ~0.4% rise in USD import costs'), (3) any BoE/OBR policy context driving the move, (4) hedging or forward cover implications. EMPTY STRING if FX flat and no policy news.",
+      "policy": "ONLY if Bank of England, OBR, or fiscal policy news explicitly appeared. 3-5 sentences: (1) specific policy announcement or signal, (2) market reaction, (3) procurement/cost implication (interest rates, credit costs, broader economic outlook). EMPTY STRING if no policy news."
     }
   }));
 
@@ -527,6 +563,8 @@ Deno.serve(async (req: Request) => {
       three_things: (parsed.three_things as string[]) || [],
       action_rationale: (parsed.action_rationale as Record<string, string>) || {},
       geopolitical_context: (parsed.geopolitical_context as string) || "",
+      procurement_actions: (parsed.procurement_actions as string[]) || [],
+      market_outlook: (parsed.market_outlook as string) || "",
       model: openaiData.model ?? "gpt-4o",
       prompt_tokens: usage.prompt_tokens ?? null,
       completion_tokens: usage.completion_tokens ?? null,
