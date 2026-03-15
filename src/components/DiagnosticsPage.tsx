@@ -199,6 +199,54 @@ export default function DiagnosticsPage({ onBack }: DiagnosticsPageProps) {
     }
   }, [setServiceStatus]);
 
+  const testEIABrentCrude = useCallback(async () => {
+    setServiceStatus('eia', { status: 'testing' });
+    const t0 = Date.now();
+    try {
+      const res = await fetch(import.meta.env.VITE_SUPABASE_URL + '/functions/v1/market-feeds', {
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json() as Record<string, unknown>;
+      const sources = json.sources as Record<string, unknown>[] | undefined;
+      const eiaSource = sources?.find(s => s.source_name === 'EIA Brent Crude');
+      if (!eiaSource) throw new Error('EIA Brent Crude not found in response');
+      const success = eiaSource.success as boolean;
+      const accuracy = eiaSource.accuracy_score as number;
+      const currentPrice = eiaSource.current_price as number | undefined;
+      const period = eiaSource.data_period as string | undefined;
+      const changePct = eiaSource.change_pct as number | undefined;
+      const note = eiaSource.note as string | undefined;
+      const errMsg = eiaSource.error as string | null;
+      const latencyMs = Date.now() - t0;
+      if (!success) throw new Error(errMsg ?? 'EIA returned failure');
+      const detail = [
+        currentPrice !== undefined ? `$${currentPrice.toFixed(2)}/bbl` : null,
+        changePct !== undefined ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : null,
+        period ? `Period: ${period}` : null,
+        `Accuracy: ${accuracy}%`,
+        note,
+      ].filter(Boolean).join(' · ');
+      setServiceStatus('eia', {
+        status: accuracy < 50 ? 'warn' : 'ok',
+        latencyMs,
+        detail,
+        meta: eiaSource,
+        testedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      setServiceStatus('eia', {
+        status: 'error',
+        latencyMs: Date.now() - t0,
+        detail: String(e),
+        testedAt: new Date().toISOString(),
+      });
+    }
+  }, [setServiceStatus]);
+
   const runAll = useCallback(async () => {
     setRunning(true);
     setStartedAt(new Date().toISOString());
@@ -349,6 +397,13 @@ export default function DiagnosticsPage({ onBack }: DiagnosticsPageProps) {
                     service={svc}
                     expanded={expanded.has(svc.id)}
                     onToggle={() => toggleExpand(svc.id)}
+                    onRetest={
+                      svc.id === 'supabase-db' ? testSupabaseDb :
+                      svc.id === 'supabase-auth' ? testSupabaseAuth :
+                      svc.id === 'supabase-edge' ? testEdgeFunction :
+                      svc.id === 'eia' ? testEIABrentCrude :
+                      undefined
+                    }
                   />
                 ))}
               </div>
@@ -400,12 +455,14 @@ function CategoryIcon({ category }: { category: ServiceResult['category'] }) {
   return <Rss size={11} className="text-slate-500" />;
 }
 
-function ServiceRow({ service, expanded, onToggle }: {
+function ServiceRow({ service, expanded, onToggle, onRetest }: {
   service: ServiceResult;
   expanded: boolean;
   onToggle: () => void;
+  onRetest?: () => void;
 }) {
   const hasDetail = !!service.detail || !!service.meta;
+  const isTesting = service.status === 'testing';
   const statusColors: Record<ServiceResult['status'], string> = {
     idle: 'border-slate-800 bg-slate-900/40',
     testing: 'border-sky-500/20 bg-sky-950/20',
@@ -416,13 +473,7 @@ function ServiceRow({ service, expanded, onToggle }: {
 
   return (
     <div className={cn('rounded-lg border transition-colors', statusColors[service.status])}>
-      <button
-        onClick={hasDetail ? onToggle : undefined}
-        className={cn(
-          'w-full flex items-center gap-3 px-4 py-3 text-left',
-          hasDetail ? 'cursor-pointer' : 'cursor-default'
-        )}
-      >
+      <div className="flex items-center gap-3 px-4 py-3">
         <StatusIcon status={service.status} />
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -450,12 +501,31 @@ function ServiceRow({ service, expanded, onToggle }: {
           {service.url}
         </div>
 
-        {hasDetail && (
-          <div className="shrink-0 text-slate-600">
-            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          </div>
+        {onRetest && (
+          <button
+            onClick={onRetest}
+            disabled={isTesting}
+            className={cn(
+              'shrink-0 flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold border transition-all',
+              isTesting
+                ? 'opacity-40 cursor-not-allowed border-slate-700 text-slate-500'
+                : 'border-slate-700/60 bg-slate-800/40 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 hover:border-slate-600'
+            )}
+          >
+            <RefreshCw size={9} className={isTesting ? 'animate-spin' : ''} />
+            Test
+          </button>
         )}
-      </button>
+
+        {hasDetail && (
+          <button
+            onClick={onToggle}
+            className="shrink-0 text-slate-600 hover:text-slate-400 transition-colors"
+          >
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+        )}
+      </div>
 
       {expanded && service.meta && (
         <div className="px-4 pb-4 border-t border-slate-800/60 pt-3">
