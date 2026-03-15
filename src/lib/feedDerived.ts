@@ -106,7 +106,7 @@ const SYMBOL_CONFIG: Record<string, {
   'DX=F': {
     name: 'US Dollar Index',
     shortName: 'USD Index',
-    category: 'fx',
+    category: 'energy',
     unit: 'pts',
     currency: 'USD',
     relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'financial'],
@@ -115,7 +115,7 @@ const SYMBOL_CONFIG: Record<string, {
   'GBPUSD=X': {
     name: 'GBP/USD',
     shortName: 'GBP/USD',
-    category: 'fx',
+    category: 'energy',
     unit: '',
     currency: 'USD',
     relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'construction', 'financial'],
@@ -124,7 +124,7 @@ const SYMBOL_CONFIG: Record<string, {
   'GBPEUR=X': {
     name: 'GBP/EUR',
     shortName: 'GBP/EUR',
-    category: 'fx',
+    category: 'energy',
     unit: '',
     currency: 'EUR',
     relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'construction', 'financial'],
