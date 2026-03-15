@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Check, Loader2, X, Bell } from 'lucide-react';
+import { Mail, Check, Loader2, X, Bell, TrendingUp, ShoppingBasket, Ship, BarChart2, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const SUBSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-morning-brief`;
@@ -9,11 +9,61 @@ const HEADERS = {
 };
 
 type State = 'idle' | 'loading' | 'success' | 'error';
+type PersonaId = 'general' | 'trader' | 'agri' | 'logistics' | 'analyst';
+
+const PERSONAS: { id: PersonaId; label: string; desc: string; icon: React.ElementType; color: string; border: string; activeBg: string }[] = [
+  {
+    id: 'general',
+    label: 'Business Overview',
+    desc: 'Plain-English cost & supply chain impact',
+    icon: Briefcase,
+    color: 'text-slate-300',
+    border: 'border-slate-600/40',
+    activeBg: 'bg-slate-700/50 border-slate-500/60',
+  },
+  {
+    id: 'trader',
+    label: 'Commodity Trader',
+    desc: 'Price signals, crisis attribution, 7am standup',
+    icon: TrendingUp,
+    color: 'text-red-400',
+    border: 'border-slate-700/40',
+    activeBg: 'bg-red-950/40 border-red-500/50',
+  },
+  {
+    id: 'agri',
+    label: 'Agri Buyer',
+    desc: 'Wheat, fertilizer, Black Sea & forward cover',
+    icon: ShoppingBasket,
+    color: 'text-emerald-400',
+    border: 'border-slate-700/40',
+    activeBg: 'bg-emerald-950/40 border-emerald-500/50',
+  },
+  {
+    id: 'logistics',
+    label: 'Logistics Director',
+    desc: 'Shipping lanes, rerouting, bunker fuel',
+    icon: Ship,
+    color: 'text-sky-400',
+    border: 'border-slate-700/40',
+    activeBg: 'bg-sky-950/40 border-sky-500/50',
+  },
+  {
+    id: 'analyst',
+    label: 'Risk Analyst',
+    desc: 'Composite risk score, correlations, client brief',
+    icon: BarChart2,
+    color: 'text-amber-400',
+    border: 'border-slate-700/40',
+    activeBg: 'bg-amber-950/40 border-amber-500/50',
+  },
+];
 
 export default function EmailSubscribe() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [persona, setPersona] = useState<PersonaId>('general');
   const [state, setState] = useState<State>('idle');
   const [message, setMessage] = useState('');
 
@@ -28,12 +78,12 @@ export default function EmailSubscribe() {
       const res = await fetch(SUBSCRIBE_URL, {
         method: 'POST',
         headers: HEADERS,
-        body: JSON.stringify({ action: 'subscribe', email: email.trim(), name: name.trim() }),
+        body: JSON.stringify({ action: 'subscribe', email: email.trim(), name: name.trim(), persona }),
       });
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error ?? `Error ${res.status}`);
       setState('success');
-      setMessage(json.message ?? 'Subscribed! You will receive tomorrow\'s brief at 06:00 UTC.');
+      setMessage(json.message ?? "Subscribed! You'll receive tomorrow's brief at 06:00 UTC.");
     } catch (err) {
       setState('error');
       setMessage(String(err).replace('Error: ', ''));
@@ -47,8 +97,11 @@ export default function EmailSubscribe() {
       setMessage('');
       setEmail('');
       setName('');
+      setPersona('general');
     }, 300);
   }
+
+  const selectedPersona = PERSONAS.find(p => p.id === persona)!;
 
   return (
     <>
@@ -102,7 +155,7 @@ export default function EmailSubscribe() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-[11px] font-medium text-slate-400 mb-1.5 uppercase tracking-wider">
                       Name (optional)
@@ -116,6 +169,7 @@ export default function EmailSubscribe() {
                       disabled={state === 'loading'}
                     />
                   </div>
+
                   <div>
                     <label className="block text-[11px] font-medium text-slate-400 mb-1.5 uppercase tracking-wider">
                       Email address
@@ -129,6 +183,39 @@ export default function EmailSubscribe() {
                       className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700/60 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-colors"
                       disabled={state === 'loading'}
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-400 mb-2 uppercase tracking-wider">
+                      Tailor my brief to
+                    </label>
+                    <div className="space-y-1.5">
+                      {PERSONAS.map(p => {
+                        const Icon = p.icon;
+                        const active = persona === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setPersona(p.id)}
+                            disabled={state === 'loading'}
+                            className={cn(
+                              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all',
+                              active ? p.activeBg : 'border-slate-700/40 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-600/60',
+                            )}
+                          >
+                            <Icon size={13} className={active ? p.color : 'text-slate-500'} />
+                            <div className="flex-1 min-w-0">
+                              <span className={cn('text-[12px] font-semibold block', active ? p.color : 'text-slate-400')}>{p.label}</span>
+                              <span className="text-[10px] text-slate-500 leading-tight block truncate">{p.desc}</span>
+                            </div>
+                            {active && (
+                              <Check size={11} className={p.color} />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {state === 'error' && message && (
@@ -154,7 +241,7 @@ export default function EmailSubscribe() {
                       ) : (
                         <>
                           <Mail size={14} />
-                          Subscribe to Morning Brief
+                          Subscribe — {selectedPersona.label}
                         </>
                       )}
                     </button>
