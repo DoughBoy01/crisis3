@@ -5,12 +5,53 @@ interface HomePageProps {
 }
 
 const timeline = [
-  { time: '9pm', label: 'Sydney opens', detail: 'Pacific session live. AUD, NZD, and early Gold moves captured.' },
-  { time: '12am', label: 'Tokyo opens', detail: 'JPY pairs, Gold session, and Asian equity futures begin moving. Shipping and conflict alerts monitored.' },
-  { time: '1am', label: 'Shanghai & mainland China', detail: 'Commodity futures, CNY FX, and geopolitical signals tracked across APAC.' },
-  { time: '3am', label: 'Hong Kong & Singapore', detail: 'Regional equity closes, freight indices, and late-breaking news scored for impact.' },
-  { time: '6am', label: 'Brief compiled', detail: 'AI distils the full overnight session into a ranked intelligence report.' },
-  { time: '7am', label: 'In your inbox', detail: 'You read it with your coffee. You know what to act on.' },
+  {
+    time: '9pm',
+    label: 'Sydney opens',
+    detail: 'Pacific session live. AUD, NZD, and early Gold moves captured.',
+    events: [
+      { severity: 'HIGH', text: 'Pacific Rim missile test — JPY safe-haven demand spikes, Gold +0.8%' },
+    ],
+  },
+  {
+    time: '12am',
+    label: 'Tokyo opens',
+    detail: 'JPY pairs, Gold session, and Asian equity futures begin moving. Shipping and conflict alerts monitored.',
+    events: [
+      { severity: 'HIGH', text: 'North Korea ballistic launch detected — USD/JPY -120 pips in 4 minutes' },
+      { severity: 'MED', text: 'Taiwan Strait patrol escalation — semiconductor futures slide' },
+    ],
+  },
+  {
+    time: '1am',
+    label: 'Shanghai & mainland China',
+    detail: 'Commodity futures, CNY FX, and geopolitical signals tracked across APAC.',
+    events: [
+      { severity: 'MED', text: 'South China Sea vessel standoff — LNG spot freight rates +6%' },
+      { severity: 'INFO', text: 'Myanmar junta airstrike near Thai border — supply route disruption flagged' },
+    ],
+  },
+  {
+    time: '3am',
+    label: 'Hong Kong & Singapore',
+    detail: 'Regional equity closes, freight indices, and late-breaking news scored for impact.',
+    events: [
+      { severity: 'HIGH', text: 'Houthi drone strikes on Red Sea tanker — Brent +$2.10, rerouting confirmed' },
+      { severity: 'MED', text: 'Russia-Ukraine drone barrage on Odessa — Black Sea wheat corridor at risk' },
+    ],
+  },
+  {
+    time: '6am',
+    label: 'Brief compiled',
+    detail: 'AI distils the full overnight session into a ranked intelligence report.',
+    events: [],
+  },
+  {
+    time: '7am',
+    label: 'In your inbox',
+    detail: 'You read it with your coffee. You know what to act on.',
+    events: [],
+  },
 ];
 
 const signals = [
@@ -93,15 +134,35 @@ export default function HomePage({ onEnter }: HomePageProps) {
             <div className="space-y-6">
               {timeline.map((t, i) => (
                 <div key={i} className="flex items-start gap-5 sm:gap-7">
-                  <div className="flex-shrink-0 text-right w-14 sm:w-16">
+                  <div className="flex-shrink-0 text-right w-14 sm:w-16 pt-0.5">
                     <span className="text-xs font-bold text-sky-400/70 font-mono">{t.time}</span>
                   </div>
-                  <div className="flex-shrink-0 relative z-10 mt-0.5 hidden sm:flex">
-                    <div className="w-2.5 h-2.5 rounded-full bg-sky-500/50 border border-sky-400/40 ring-4 ring-background" />
+                  <div className="flex-shrink-0 relative z-10 mt-1.5 hidden sm:flex">
+                    <div className={`w-2.5 h-2.5 rounded-full border ring-4 ring-background ${t.events.length > 0 ? 'bg-red-500/70 border-red-400/60' : 'bg-sky-500/50 border-sky-400/40'}`} />
                   </div>
                   <div className="flex-1 pb-1">
                     <p className="text-sm font-bold text-slate-200">{t.label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{t.detail}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 mb-2">{t.detail}</p>
+                    {t.events.length > 0 && (
+                      <div className="space-y-1.5">
+                        {t.events.map((ev, j) => {
+                          const styles =
+                            ev.severity === 'HIGH'
+                              ? { tag: 'bg-red-500/15 border-red-500/30 text-red-400', row: 'bg-red-500/5 border-red-500/15' }
+                              : ev.severity === 'MED'
+                              ? { tag: 'bg-amber-500/15 border-amber-500/30 text-amber-400', row: 'bg-amber-500/5 border-amber-500/15' }
+                              : { tag: 'bg-sky-500/15 border-sky-500/30 text-sky-400', row: 'bg-sky-500/5 border-sky-500/15' };
+                          return (
+                            <div key={j} className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${styles.row}`}>
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border tracking-wider flex-shrink-0 mt-0.5 ${styles.tag}`}>
+                                {ev.severity}
+                              </span>
+                              <p className="text-[11px] text-slate-400 leading-relaxed">{ev.text}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
