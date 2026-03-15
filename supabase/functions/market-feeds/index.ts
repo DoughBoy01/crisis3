@@ -230,23 +230,33 @@ async function fetchBrentCrude(): Promise<Record<string, unknown>> {
     };
   }
   try {
-    const url = `https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${apiKey}&data[0]=value&facets[product][]=EPCBRENT&facets[duoarea][]=RGC&length=5&sort[0][column]=period&sort[0][direction]=desc`;
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      frequency: "daily",
+      "data[]": "value",
+      "facets[series][]": "RBRTE",
+      "sort[0][column]": "period",
+      "sort[0][direction]": "desc",
+      offset: "0",
+      length: "2",
+    });
+    const url = `https://api.eia.gov/v2/petroleum/pri/spt/data/?${params.toString()}`;
     const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json() as { response?: { data?: { period: string; value: string; product: string; duoarea: string }[] } };
+    const json = await res.json() as { response?: { data?: { period: string; value: string | number }[] } };
     const data = json?.response?.data ?? [];
 
     const brentRows = data.filter(d => {
-      const v = parseFloat(d.value);
+      const v = parseFloat(String(d.value));
       return !isNaN(v) && v > 20 && v < 250;
     });
 
     if (brentRows.length === 0) {
-      throw new Error(`No valid Brent price rows in EIA response. Raw data: ${JSON.stringify(data.slice(0, 3))}`);
+      throw new Error(`No valid Brent price rows in EIA RBRTE response. Raw data: ${JSON.stringify(data.slice(0, 3))}`);
     }
 
-    const current = parseFloat(brentRows[0].value);
-    const previous = brentRows.length >= 2 ? parseFloat(brentRows[1].value) : current;
+    const current = parseFloat(String(brentRows[0].value));
+    const previous = brentRows.length >= 2 ? parseFloat(String(brentRows[1].value)) : current;
     const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
     const age = ageMinutes(fetchTime);
     return {
@@ -261,7 +271,7 @@ async function fetchBrentCrude(): Promise<Record<string, unknown>> {
       change_abs: Math.round((current - previous) * 100) / 100,
       data_age_minutes: age,
       accuracy_score: accuracyScore(age, 1440, current > 0),
-      note: `EIA Brent spot (EPCBRENT/RGC) — weekly, updated each US business day. Period: ${brentRows[0].period}`,
+      note: `EIA Brent spot (RBRTE series) — daily, updated each US business day. Period: ${brentRows[0].period}`,
     };
   } catch (e) {
     return { source_name: "EIA Brent Crude", success: false, error: String(e), fetch_time_gmt: fetchTime, data_age_minutes: null, accuracy_score: 0 };
