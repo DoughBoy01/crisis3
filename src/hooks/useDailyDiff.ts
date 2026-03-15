@@ -178,7 +178,7 @@ export function useDailyDiff(): DailyDiffResult {
         });
       } catch (e) {
         if (!cancelled) {
-          setResult(prev => ({ ...prev, loading: false, error: String(e), hasData: false }));
+          setResult(prev => ({ ...prev, loading: false, error: e instanceof Error ? e.message : String(e), hasData: false }));
         }
       }
     }

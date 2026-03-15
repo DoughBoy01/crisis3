@@ -72,21 +72,27 @@ Deno.serve(async (req: Request) => {
 
     let deletedCount = 0;
 
+    const normalizedTitle = storyTitle.trim().toLowerCase();
+
     for (const row of rows ?? []) {
-      const payload = row.payload as {
-        sources: Array<{ items?: Array<{ title: string }> }>;
-      };
+      if (!row.payload || typeof row.payload !== "object") continue;
+      const rawPayload = row.payload as Record<string, unknown>;
+      if (!Array.isArray(rawPayload.sources)) continue;
 
       let changed = false;
 
-      for (const source of payload.sources ?? []) {
-        if (!source.items) continue;
+      const updatedSources = (rawPayload.sources as Array<Record<string, unknown>>).map((source) => {
+        if (!Array.isArray(source.items)) return source;
         const before = source.items.length;
-        source.items = source.items.filter(
-          (item) => item.title.trim().toLowerCase() !== storyTitle.trim().toLowerCase()
-        );
-        if (source.items.length < before) changed = true;
-      }
+        const filtered = (source.items as Array<Record<string, unknown>>).filter((item) => {
+          if (typeof item.title !== "string") return true;
+          return item.title.trim().toLowerCase() !== normalizedTitle;
+        });
+        if (filtered.length < before) changed = true;
+        return { ...source, items: filtered };
+      });
+
+      const payload = { ...rawPayload, sources: updatedSources };
 
       if (changed) {
         const { error: updateError } = await adminClient

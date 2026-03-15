@@ -48,7 +48,7 @@ export function useDailyBrief(persona: PersonaId): DailyBriefState {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cached, setCached] = useState(false);
-  const prevPersonaRef = useRef<PersonaId | null>(null);
+  const generatingRef = useRef(false);
 
   useEffect(() => {
     async function checkCache() {
@@ -78,8 +78,8 @@ export function useDailyBrief(persona: PersonaId): DailyBriefState {
   }, [persona]);
 
   const trigger = useCallback(async (feeds: FeedPayload, triggerPersona: PersonaId) => {
-    if (prevPersonaRef.current === triggerPersona && brief) return;
-    prevPersonaRef.current = triggerPersona;
+    if (generatingRef.current) return;
+    generatingRef.current = true;
 
     setGenerating(true);
     setError(null);
@@ -95,11 +95,12 @@ export function useDailyBrief(persona: PersonaId): DailyBriefState {
       setBrief(json.brief as DailyBrief);
       setCached(json.cached === true);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setGenerating(false);
+      generatingRef.current = false;
     }
-  }, [brief]);
+  }, []);
 
   return { brief, loading, generating, error, cached, trigger };
 }

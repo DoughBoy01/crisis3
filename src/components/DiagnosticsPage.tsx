@@ -246,14 +246,14 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
       for (const source of sources) {
         const id = sourceIdMap[source.source_name as string];
         if (!id) continue;
-        const success = source.success as boolean;
-        const accuracy = source.accuracy_score as number;
-        const ageMin = source.data_age_minutes as number | null;
-        const items = source.items as unknown[] | undefined;
-        const note = source.note as string | undefined;
-        const errMsg = source.error as string | null;
+        const success = typeof source.success === 'boolean' ? source.success : false;
+        const accuracy = typeof source.accuracy_score === 'number' ? source.accuracy_score : 0;
+        const ageMin = typeof source.data_age_minutes === 'number' ? source.data_age_minutes : null;
+        const items = Array.isArray(source.items) ? source.items : undefined;
+        const note = typeof source.note === 'string' ? source.note : undefined;
+        const errMsg = typeof source.error === 'string' ? source.error : null;
 
-        const quotesCount = source.quotes_count as number | undefined;
+        const quotesCount = typeof source.quotes_count === 'number' ? source.quotes_count : undefined;
         let detail = '';
         if (!success) {
           detail = errMsg ?? 'Failed';

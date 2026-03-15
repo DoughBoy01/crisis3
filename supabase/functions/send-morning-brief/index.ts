@@ -200,6 +200,16 @@ const PERSONA_META: Record<PersonaId, {
   },
 };
 
+function escHtml(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const SECTOR_LABELS: Record<string, string> = {
   energy: "Energy",
   agricultural: "Agricultural / Grain",
@@ -274,7 +284,7 @@ function buildDecisionBlock(decision: TopDecision, accentColor: string): string 
           <!-- Headline -->
           <tr>
             <td style="padding:20px 20px 4px;">
-              <p style="margin:0;font-size:22px;font-weight:800;color:#f1f5f9;line-height:1.25;letter-spacing:-0.02em;">${decision.headline}</p>
+              <p style="margin:0;font-size:22px;font-weight:800;color:#f1f5f9;line-height:1.25;letter-spacing:-0.02em;">${escHtml(decision.headline)}</p>
             </td>
           </tr>
 
@@ -285,16 +295,16 @@ function buildDecisionBlock(decision: TopDecision, accentColor: string): string 
                 <tr>
                   <td style="padding-right:16px;">
                     <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Market</span><br />
-                    <span style="font-size:13px;font-weight:600;color:#cbd5e1;">${decision.market}</span>
+                    <span style="font-size:13px;font-weight:600;color:#cbd5e1;">${escHtml(decision.market)}</span>
                   </td>
                   <td style="padding-right:16px;border-left:1px solid #1e293b;padding-left:16px;">
                     <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">Act by</span><br />
-                    <span style="font-size:13px;font-weight:700;color:${isHold ? "#475569" : cfg.border};">${decision.deadline}</span>
+                    <span style="font-size:13px;font-weight:700;color:${isHold ? "#475569" : cfg.border};">${escHtml(decision.deadline)}</span>
                   </td>
                   ${decision.gbp_impact ? `
                   <td style="border-left:1px solid #1e293b;padding-left:16px;">
                     <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.1em;">£ Exposure</span><br />
-                    <span style="font-size:13px;font-weight:700;color:${isHold ? "#475569" : "#fbbf24"};">${decision.gbp_impact}</span>
+                    <span style="font-size:13px;font-weight:700;color:${isHold ? "#475569" : "#fbbf24"};">${escHtml(decision.gbp_impact)}</span>
                   </td>` : ""}
                 </tr>
               </table>
@@ -306,7 +316,7 @@ function buildDecisionBlock(decision: TopDecision, accentColor: string): string 
           <tr>
             <td style="padding:0 20px 18px;">
               <div style="border-top:1px solid #1e293b;padding-top:12px;">
-                <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.65;">${decision.rationale}</p>
+                <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.65;">${escHtml(decision.rationale)}</p>
               </div>
             </td>
           </tr>` : ""}
@@ -328,7 +338,7 @@ function buildCompoundingRiskBlock(risk: string, accentColor: string): string {
           </tr>
           <tr>
             <td style="padding:12px 16px;">
-              <p style="margin:0;font-size:13px;color:#fca5a5;line-height:1.65;">${risk}</p>
+              <p style="margin:0;font-size:13px;color:#fca5a5;line-height:1.65;">${escHtml(risk)}</p>
             </td>
           </tr>
         </table>
@@ -420,11 +430,11 @@ function buildShippingLaneBlock(lanes: ShippingLaneEntry[], accentColor: string)
                 <tr>
                   <td style="vertical-align:middle;">
                     <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${s.dot};margin-right:7px;vertical-align:middle;"></span>
-                    <span style="font-size:12px;font-weight:700;color:#e2e8f0;vertical-align:middle;">${lane.lane}</span>
-                    <span style="font-size:10px;color:#475569;margin-left:8px;vertical-align:middle;">${lane.region}</span>
+                    <span style="font-size:12px;font-weight:700;color:#e2e8f0;vertical-align:middle;">${escHtml(lane.lane)}</span>
+                    <span style="font-size:10px;color:#475569;margin-left:8px;vertical-align:middle;">${escHtml(lane.region)}</span>
                   </td>
                   <td align="right">
-                    <span style="display:inline-block;background:${s.badgeBg};border:1px solid ${s.border};color:${s.badgeText};font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;">${lane.statusLabel}</span>
+                    <span style="display:inline-block;background:${s.badgeBg};border:1px solid ${s.border};color:${s.badgeText};font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;">${escHtml(lane.statusLabel)}</span>
                   </td>
                 </tr>
               </table>
@@ -432,18 +442,18 @@ function buildShippingLaneBlock(lanes: ShippingLaneEntry[], accentColor: string)
           </tr>
           <tr>
             <td style="padding:4px 14px 4px 28px;">
-              <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">${lane.impact}</p>
+              <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">${escHtml(lane.impact)}</p>
             </td>
           </tr>
           <tr>
             <td style="padding:2px 14px ${showSignal ? "4px" : "10px"} 28px;">
-              <p style="margin:0;font-size:11px;color:${s.textColor};font-weight:600;">${lane.freightImpact}</p>
+              <p style="margin:0;font-size:11px;color:${s.textColor};font-weight:600;">${escHtml(lane.freightImpact)}</p>
             </td>
           </tr>
           ${showSignal ? `
           <tr>
             <td style="padding:2px 14px 10px 28px;">
-              <p style="margin:0;font-size:11px;color:#475569;font-style:italic;line-height:1.4;">${lane.latestSignal}</p>
+              <p style="margin:0;font-size:11px;color:#475569;font-style:italic;line-height:1.4;">${escHtml(lane.latestSignal)}</p>
             </td>
           </tr>` : ""}
         </table>
@@ -505,10 +515,10 @@ function buildFertilizerBlock(entries: FertilizerEntry[], accentColor: string): 
               </div>
             </td>
             <td style="vertical-align:top;">
-              <p style="margin:0 0 3px;font-size:13px;font-weight:700;color:#e2e8f0;">${entry.product}</p>
-              <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;line-height:1.5;">${entry.priceSignal}</p>
-              ${entry.supplyRisk && entry.supplyRisk.length > 3 ? `<p style="margin:0 0 4px;font-size:11px;color:#64748b;line-height:1.5;">Supply risk: ${entry.supplyRisk}</p>` : ""}
-              ${entry.actionNote && entry.actionNote.length > 3 ? `<p style="margin:0;font-size:11px;font-weight:600;color:${accentColor};">${entry.actionNote}</p>` : ""}
+              <p style="margin:0 0 3px;font-size:13px;font-weight:700;color:#e2e8f0;">${escHtml(entry.product)}</p>
+              <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;line-height:1.5;">${escHtml(entry.priceSignal)}</p>
+              ${entry.supplyRisk && entry.supplyRisk.length > 3 ? `<p style="margin:0 0 4px;font-size:11px;color:#64748b;line-height:1.5;">Supply risk: ${escHtml(entry.supplyRisk)}</p>` : ""}
+              ${entry.actionNote && entry.actionNote.length > 3 ? `<p style="margin:0;font-size:11px;font-weight:600;color:${accentColor};">${escHtml(entry.actionNote)}</p>` : ""}
             </td>
           </tr>
         </table>
@@ -576,7 +586,7 @@ function buildSectorRows(brief: DailyBrief, sectors: string[], accentColor: stri
                   <td style="vertical-align:top;padding-right:8px;white-space:nowrap;">
                     ${source ? `<span style="display:inline-block;background:#0f172a;border:1px solid #1e293b;color:#475569;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:2px 6px;border-radius:3px;white-space:nowrap;">${source.replace(" RSS", "").replace(" Business", "")}</span>` : ""}
                   </td>
-                  <td style="font-size:12px;color:#64748b;line-height:1.5;font-style:italic;">${text}</td>
+                  <td style="font-size:12px;color:#64748b;line-height:1.5;font-style:italic;">${escHtml(text)}</td>
                 </tr>
               </table>`;
             }).join("")}
@@ -588,7 +598,7 @@ function buildSectorRows(brief: DailyBrief, sectors: string[], accentColor: stri
             <tr>
               <td style="background:#060f1f;border:1px solid #1e3a5f;border-left:3px solid ${accentColor};border-radius:4px;padding:8px 12px;">
                 <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.08em;">2-5 Day Outlook</span>
-                <p style="margin:4px 0 0;font-size:12px;color:#93c5fd;line-height:1.6;">${forwardText}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#93c5fd;line-height:1.6;">${escHtml(forwardText)}</p>
               </td>
             </tr>
           </table>`
@@ -604,7 +614,7 @@ function buildSectorRows(brief: DailyBrief, sectors: string[], accentColor: stri
                 <p style="margin:4px 0 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">${SECTOR_LABELS[k] ?? k}</p>
               </td>
               <td style="padding:16px 16px 16px 0;vertical-align:top;">
-                <p style="margin:0;font-size:13px;color:#cbd5e1;line-height:1.7;">${rationale[k]}</p>
+                <p style="margin:0;font-size:13px;color:#cbd5e1;line-height:1.7;">${escHtml(rationale[k])}</p>
                 ${headlinesHtml}
                 ${forwardHtml}
               </td>
@@ -634,7 +644,7 @@ function buildHtmlEmail(
 
   const unsubscribeUrl = `${supabaseUrl}/functions/v1/send-morning-brief?unsubscribe=${unsubscribeToken}`;
   const meta = PERSONA_META[persona] ?? PERSONA_META.general;
-  const greeting = recipientName ? `Hi ${recipientName},` : "Good morning,";
+  const greeting = recipientName ? `Hi ${escHtml(recipientName)},` : "Good morning,";
 
   const priceTable = buildPriceTable(brief.price_snapshot ?? [], persona);
   const sectorRows = buildSectorRows(brief, meta.sectors, meta.accentColor);
@@ -667,8 +677,8 @@ function buildHtmlEmail(
           <span style="display:inline-block;width:28px;height:28px;background:${meta.accentColor};color:#0f172a;font-size:13px;font-weight:800;border-radius:50%;text-align:center;line-height:28px;">${i + 1}</span>
         </td>
         <td style="vertical-align:top;background:#060f1f;border:1px solid #1e293b;border-left:3px solid ${meta.accentColor};border-radius:6px;padding:12px 16px;">
-          ${title ? `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#f1f5f9;line-height:1.3;">${title}</p>` : ""}
-          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.7;">${body}</p>
+          ${title ? `<p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#f1f5f9;line-height:1.3;">${escHtml(title)}</p>` : ""}
+          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.7;">${escHtml(body)}</p>
         </td>
       </tr>
     </table>`;
@@ -744,7 +754,7 @@ function buildHtmlEmail(
         <tr>
           <td style="background:#0d1627;border-left:1px solid ${meta.borderColor};border-right:1px solid ${meta.borderColor};padding:24px 32px 20px;">
             <p style="margin:0 0 14px;font-size:13px;color:#64748b;">${greeting}</p>
-            <p style="margin:0;font-size:15px;font-weight:500;color:#e2e8f0;line-height:1.75;">${brief.narrative}</p>
+            <p style="margin:0;font-size:15px;font-weight:500;color:#e2e8f0;line-height:1.75;">${escHtml(brief.narrative)}</p>
           </td>
         </tr>
 
@@ -760,7 +770,7 @@ function buildHtmlEmail(
               </tr>
               <tr>
                 <td style="padding:12px 14px;">
-                  <p style="margin:0;font-size:13px;color:#fca5a5;line-height:1.7;">${brief.geopolitical_context}</p>
+                  <p style="margin:0;font-size:13px;color:#fca5a5;line-height:1.7;">${escHtml(brief.geopolitical_context)}</p>
                 </td>
               </tr>
             </table>
@@ -844,7 +854,7 @@ function buildHtmlEmail(
                   <td style="vertical-align:top;padding-right:10px;white-space:nowrap;width:52px;">
                     <span style="display:inline-block;background:${badgeBg};border:1px solid ${badgeColor};color:${badgeColor};font-size:9px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;padding:3px 7px;border-radius:4px;">${badgeLabel}</span>
                   </td>
-                  <td style="vertical-align:top;font-size:13px;color:#cbd5e1;line-height:1.7;">${action}</td>
+                  <td style="vertical-align:top;font-size:13px;color:#cbd5e1;line-height:1.7;">${escHtml(action)}</td>
                 </tr>
               </table>`;
             }).join("")}
@@ -866,7 +876,7 @@ function buildHtmlEmail(
                 </td>
               </tr>
             </table>
-            <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.75;">${brief.market_outlook}</p>
+            <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.75;">${escHtml(brief.market_outlook)}</p>
           </td>
         </tr>` : ""}
 

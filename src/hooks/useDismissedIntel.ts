@@ -41,8 +41,9 @@ export function useDismissedIntel(): UseDismissedIntelReturn {
   }, []);
 
   const dismissTopic = useCallback(async (topic: TopicIntelligence, runId: string, reason?: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const { data, error: authError } = await supabase.auth.getUser();
+    if (authError || !data.user) return;
+    const user = data.user;
 
     const record = {
       type: 'scout_topic' as const,
@@ -55,20 +56,21 @@ export function useDismissedIntel(): UseDismissedIntelReturn {
       scouting_run_id: runId,
     };
 
-    const { data, error } = await supabase
+    const { data: insertedTopic, error } = await supabase
       .from('dismissed_intel')
       .insert(record)
       .select()
       .single();
 
-    if (!error && data) {
-      setDismissed(prev => [data as DismissedIntelRecord, ...prev]);
+    if (!error && insertedTopic) {
+      setDismissed(prev => [insertedTopic as DismissedIntelRecord, ...prev]);
     }
   }, []);
 
   const dismissStory = useCallback(async (refId: string, title: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const { data, error: authError } = await supabase.auth.getUser();
+    if (authError || !data.user) return;
+    const user = data.user;
 
     const record = {
       type: 'news_story' as const,
@@ -81,14 +83,14 @@ export function useDismissedIntel(): UseDismissedIntelReturn {
       scouting_run_id: null,
     };
 
-    const { data, error } = await supabase
+    const { data: insertedStory, error } = await supabase
       .from('dismissed_intel')
       .insert(record)
       .select()
       .maybeSingle();
 
-    if (!error && data) {
-      setDismissed(prev => [data as DismissedIntelRecord, ...prev]);
+    if (!error && insertedStory) {
+      setDismissed(prev => [insertedStory as DismissedIntelRecord, ...prev]);
     }
   }, []);
 

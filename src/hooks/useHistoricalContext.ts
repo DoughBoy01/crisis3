@@ -147,7 +147,7 @@ export function useHistoricalContext(): {
           });
         }
       } catch (err) {
-        if (!cancelled) setError(String(err));
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       } finally {
         if (!cancelled) setLoading(false);
       }

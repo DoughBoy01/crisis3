@@ -101,9 +101,9 @@ export function useMarketFeeds(): FeedState {
       lastFetchTimeRef.current = Date.now();
       setSecondsSinceRefresh(0);
       setNextRefreshIn(AUTO_REFRESH_MS / 1000);
-      persistToCache(json).catch(() => {});
+      persistToCache(json).catch((err) => console.error("[useMarketFeeds] cache persist failed:", err));
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }

@@ -28,7 +28,8 @@ export default function AdminLogin({ onAuthenticated, onBack }: AdminLoginProps)
 
       const role = data.user?.app_metadata?.role;
       if (role !== 'admin') {
-        await supabase.auth.signOut();
+        const { error: signOutError } = await supabase.auth.signOut();
+        if (signOutError) console.error('[AdminLogin] signOut failed:', signOutError);
         setError('Access denied. Admin only.');
         return;
       }
