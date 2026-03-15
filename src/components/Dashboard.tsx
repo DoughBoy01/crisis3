@@ -359,7 +359,14 @@ export default function Dashboard({ onOpenDiagnostics, onAdminLogin, onAdminSign
       {criticalAlerts.length > 0 && (
         <div className="border-b border-red-900/60 bg-red-950/30">
           <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-4">
-            <AlertBanner alerts={criticalAlerts} timezone={timezone} variant="critical-strip" />
+            <AlertBanner
+              alerts={criticalAlerts}
+              timezone={timezone}
+              variant="critical-strip"
+              isAdmin={isAdmin}
+              onDismissAlert={isAdmin ? (title) => dismissStory(title, title) : undefined}
+              isDismissed={isDismissed}
+            />
           </div>
         </div>
       )}
@@ -452,7 +459,13 @@ export default function Dashboard({ onOpenDiagnostics, onAdminLogin, onAdminSign
                       <div className="h-3 bg-slate-700/30 rounded w-1/2" />
                     </div>
                   ) : filteredAlerts.length > 0 ? (
-                    <AlertBanner alerts={filteredAlerts} timezone={timezone} />
+                    <AlertBanner
+                      alerts={filteredAlerts}
+                      timezone={timezone}
+                      isAdmin={isAdmin}
+                      onDismissAlert={isAdmin ? (title) => dismissStory(title, title) : undefined}
+                      isDismissed={isDismissed}
+                    />
                   ) : (
                     <p className="text-sm text-muted-foreground/50 text-center py-4">No overnight alerts.</p>
                   )}

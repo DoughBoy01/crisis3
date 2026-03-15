@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, X, ArrowRight } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info, ChevronDown, ChevronUp, X, ArrowRight, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,9 @@ interface AlertBannerProps {
   alerts: MorningAlert[];
   timezone?: string;
   variant?: 'default' | 'critical-strip';
+  isAdmin?: boolean;
+  onDismissAlert?: (title: string) => void;
+  isDismissed?: (type: 'scout_topic' | 'news_story', refId: string) => boolean;
 }
 
 const severityConfig = {
@@ -42,11 +45,19 @@ const severityConfig = {
   },
 };
 
-function CriticalStrip({ alerts, timezone }: { alerts: MorningAlert[]; timezone: string }) {
-  const [dismissed, setDismissed] = useState<string[]>([]);
+function CriticalStrip({ alerts, timezone, isAdmin, onDismissAlert, isDismissed: isDismissedFn }: {
+  alerts: MorningAlert[];
+  timezone: string;
+  isAdmin?: boolean;
+  onDismissAlert?: (title: string) => void;
+  isDismissed?: (type: 'scout_topic' | 'news_story', refId: string) => boolean;
+}) {
+  const [localDismissed, setLocalDismissed] = useState<string[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(alerts[0]?.id ?? null);
 
-  const visible = alerts.filter(a => !dismissed.includes(a.id));
+  const visible = alerts.filter(a =>
+    !localDismissed.includes(a.id) && !(isDismissedFn?.('news_story', a.title))
+  );
   if (visible.length === 0) return null;
 
   return (
@@ -84,9 +95,18 @@ function CriticalStrip({ alerts, timezone }: { alerts: MorningAlert[]; timezone:
                 </div>
                 <p className="text-sm font-bold text-red-100 leading-snug">{alert.title}</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
+                {isAdmin && onDismissAlert && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onDismissAlert(alert.title); }}
+                    className="text-red-400/40 hover:text-red-300 hover:bg-red-900/40 transition-colors p-1 rounded"
+                    title="Admin: permanently remove this alert"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
                 <button
-                  onClick={e => { e.stopPropagation(); setDismissed(prev => [...prev, alert.id]); }}
+                  onClick={e => { e.stopPropagation(); setLocalDismissed(prev => [...prev, alert.id]); }}
                   className="text-red-400/50 hover:text-red-300 transition-colors p-1"
                   title="Dismiss"
                 >
@@ -115,18 +135,20 @@ function CriticalStrip({ alerts, timezone }: { alerts: MorningAlert[]; timezone:
   );
 }
 
-export default function AlertBanner({ alerts, timezone = "Europe/London", variant = 'default' }: AlertBannerProps) {
-  const [dismissed, setDismissed] = useState<string[]>([]);
+export default function AlertBanner({ alerts, timezone = "Europe/London", variant = 'default', isAdmin, onDismissAlert, isDismissed: isDismissedFn }: AlertBannerProps) {
+  const [localDismissed, setLocalDismissed] = useState<string[]>([]);
   const defaultExpanded = alerts
     .filter(a => severityConfig[a.severity].expandByDefault)
     .map(a => a.id);
   const [expanded, setExpanded] = useState<string[]>(defaultExpanded);
 
   if (variant === 'critical-strip') {
-    return <CriticalStrip alerts={alerts} timezone={timezone} />;
+    return <CriticalStrip alerts={alerts} timezone={timezone} isAdmin={isAdmin} onDismissAlert={onDismissAlert} isDismissed={isDismissedFn} />;
   }
 
-  const visible = alerts.filter(a => !dismissed.includes(a.id));
+  const visible = alerts.filter(a =>
+    !localDismissed.includes(a.id) && !(isDismissedFn?.('news_story', a.title))
+  );
   if (visible.length === 0) return null;
 
   return (
@@ -165,9 +187,18 @@ export default function AlertBanner({ alerts, timezone = "Europe/London", varian
                     {alert.affectedMarkets.length > 2 && ` +${alert.affectedMarkets.length - 2}`}
                   </span>
                 )}
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-1">
+                  {isAdmin && onDismissAlert && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onDismissAlert(alert.title); }}
+                      className="text-muted-foreground/30 hover:text-red-400 hover:bg-red-900/30 transition-colors p-0.5 rounded"
+                      title="Admin: permanently remove this alert"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                   <button
-                    onClick={e => { e.stopPropagation(); setDismissed(prev => [...prev, alert.id]); }}
+                    onClick={e => { e.stopPropagation(); setLocalDismissed(prev => [...prev, alert.id]); }}
                     className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
                   >
                     <X size={12} />
