@@ -476,7 +476,7 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
           </div>
           <div className="p-4 sm:p-5">
             {(feedsLoading || historicalLoading) && marketItems.length === 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 {categories.map(cat => (
                   <div key={cat.id} className="space-y-3">
                     <div className="h-3 bg-slate-700/50 rounded w-1/2 animate-pulse" />
@@ -496,7 +496,7 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
                     <CommodityMiniChart items={marketItems} />
                   </div>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                   {categories.map(cat => (
                     <MarketSection
                       key={cat.id}
