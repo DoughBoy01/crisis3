@@ -21,6 +21,8 @@ interface HeaderProps {
   timezone: string;
   onTimezoneChange: (tz: string) => void;
   onOpenDiagnostics?: () => void;
+  onAdminLogin?: () => void;
+  onAdminSignOut?: () => void;
 }
 
 function accuracyColor(score: number): string {
@@ -51,6 +53,8 @@ export default function Header({
   timezone,
   onTimezoneChange,
   onOpenDiagnostics,
+  onAdminLogin,
+  onAdminSignOut,
 }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -155,6 +159,28 @@ export default function Header({
               >
                 <Activity size={11} />
                 <span className="text-[10px] hidden lg:inline font-medium">Diagnostics</span>
+              </button>
+            )}
+
+            {onAdminSignOut && (
+              <button
+                onClick={onAdminSignOut}
+                title="Sign out admin"
+                className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded border border-border/50 bg-slate-800/40 hover:bg-slate-700/50 hover:border-red-500/40 transition-colors text-muted-foreground/50 hover:text-red-400"
+              >
+                <Moon size={11} />
+                <span className="text-[10px] hidden lg:inline font-medium">Sign out</span>
+              </button>
+            )}
+
+            {onAdminLogin && (
+              <button
+                onClick={onAdminLogin}
+                title="Admin login"
+                className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded border border-border/50 bg-slate-800/40 hover:bg-slate-700/50 hover:border-slate-500/40 transition-colors text-muted-foreground/30 hover:text-muted-foreground/60"
+              >
+                <Activity size={11} />
+                <span className="text-[10px] hidden lg:inline font-medium">Admin</span>
               </button>
             )}
           </div>

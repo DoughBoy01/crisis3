@@ -149,7 +149,13 @@ function CollapsibleSection({
   );
 }
 
-export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: () => void }) {
+interface DashboardProps {
+  onOpenDiagnostics?: () => void;
+  onAdminLogin?: () => void;
+  onAdminSignOut?: () => void;
+}
+
+export default function Dashboard({ onOpenDiagnostics, onAdminLogin, onAdminSignOut }: DashboardProps) {
   const [activeSector, setActiveSector] = useState<SectorId | null>(null);
   const [activePersona, setActivePersona] = useState<PersonaId>('general');
   const [conflictOpen, setConflictOpen] = useState(true);
@@ -345,6 +351,8 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
         timezone={timezone}
         onTimezoneChange={updateTimezone}
         onOpenDiagnostics={onOpenDiagnostics}
+        onAdminLogin={onAdminLogin}
+        onAdminSignOut={onAdminSignOut}
       />
 
       {criticalAlerts.length > 0 && (
