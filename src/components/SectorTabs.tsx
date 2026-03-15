@@ -1,4 +1,4 @@
-import { Tractor, Ship, ShoppingCart, Zap } from 'lucide-react';
+import { ShoppingCart, FlaskConical, Ship, HardHat, LineChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SectorId } from '../types';
 
@@ -15,29 +15,9 @@ interface Sector {
 
 const sectors: Sector[] = [
   {
-    id: 'agricultural',
-    label: 'Agricultural Merchant',
-    description: 'Fertilizer · Fuel · Grain',
-    icon: Tractor,
-    color: 'text-lime-400',
-    activeBg: 'bg-lime-500/10',
-    activeBorder: 'border-lime-500/40',
-    activeText: 'text-lime-300',
-  },
-  {
-    id: 'freight',
-    label: 'Freight Forwarder',
-    description: 'Container · War Risk · BDI',
-    icon: Ship,
-    color: 'text-sky-400',
-    activeBg: 'bg-sky-500/10',
-    activeBorder: 'border-sky-500/40',
-    activeText: 'text-sky-300',
-  },
-  {
-    id: 'food',
-    label: 'Food Distributor',
-    description: 'Wheat · Oils · Packaging',
+    id: 'food_importer',
+    label: 'Food Importers',
+    description: 'Fertilizer · Grain · Food Inflation',
     icon: ShoppingCart,
     color: 'text-amber-400',
     activeBg: 'bg-amber-500/10',
@@ -45,14 +25,44 @@ const sectors: Sector[] = [
     activeText: 'text-amber-300',
   },
   {
-    id: 'energy',
-    label: 'Energy-Exposed',
-    description: 'Gas · Diesel · Manufacturing',
-    icon: Zap,
+    id: 'chemicals',
+    label: 'Chemicals & Plastics',
+    description: 'Gas Feedstock · LNG · Petrochemicals',
+    icon: FlaskConical,
+    color: 'text-cyan-400',
+    activeBg: 'bg-cyan-500/10',
+    activeBorder: 'border-cyan-500/40',
+    activeText: 'text-cyan-300',
+  },
+  {
+    id: 'freight_3pl',
+    label: 'Freight & 3PL',
+    description: 'War Risk · Container Rates · Suez',
+    icon: Ship,
+    color: 'text-sky-400',
+    activeBg: 'bg-sky-500/10',
+    activeBorder: 'border-sky-500/40',
+    activeText: 'text-sky-300',
+  },
+  {
+    id: 'construction',
+    label: 'Construction & Plant',
+    description: 'Steel · Fuel · Equipment Costs',
+    icon: HardHat,
     color: 'text-orange-400',
     activeBg: 'bg-orange-500/10',
     activeBorder: 'border-orange-500/40',
     activeText: 'text-orange-300',
+  },
+  {
+    id: 'financial',
+    label: 'IFA / Portfolio',
+    description: 'Pre-London Open · Macro Brief',
+    icon: LineChart,
+    color: 'text-emerald-400',
+    activeBg: 'bg-emerald-500/10',
+    activeBorder: 'border-emerald-500/40',
+    activeText: 'text-emerald-300',
   },
 ];
 

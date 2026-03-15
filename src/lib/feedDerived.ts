@@ -46,7 +46,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'energy',
     unit: 'bbl',
     currency: 'USD',
-    relevantSectors: ['energy', 'freight', 'agricultural'],
+    relevantSectors: ['food_importer', 'chemicals', 'freight_3pl', 'construction', 'financial'],
     sourceUrl: 'https://www.eia.gov/petroleum/',
   },
   'CL=F': {
@@ -55,7 +55,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'energy',
     unit: 'bbl',
     currency: 'USD',
-    relevantSectors: ['energy', 'freight'],
+    relevantSectors: ['chemicals', 'freight_3pl', 'construction', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
   'NG=F': {
@@ -64,7 +64,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'energy',
     unit: 'MMBtu',
     currency: 'USD',
-    relevantSectors: ['energy', 'agricultural'],
+    relevantSectors: ['chemicals', 'food_importer', 'construction', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
   'ZW=F': {
@@ -73,7 +73,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'agricultural',
     unit: 'bu',
     currency: 'USX',
-    relevantSectors: ['agricultural', 'food'],
+    relevantSectors: ['food_importer', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
   'ZC=F': {
@@ -82,7 +82,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'agricultural',
     unit: 'bu',
     currency: 'USX',
-    relevantSectors: ['agricultural', 'food'],
+    relevantSectors: ['food_importer', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
   'ZS=F': {
@@ -91,7 +91,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'agricultural',
     unit: 'bu',
     currency: 'USX',
-    relevantSectors: ['agricultural', 'food'],
+    relevantSectors: ['food_importer', 'financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
   'GC=F': {
@@ -100,7 +100,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'metals',
     unit: 'oz',
     currency: 'USD',
-    relevantSectors: ['energy'],
+    relevantSectors: ['financial'],
     sourceUrl: 'https://www.cmegroup.com/',
   },
   'DX=F': {
@@ -109,7 +109,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'energy',
     unit: 'pts',
     currency: 'USD',
-    relevantSectors: ['energy', 'freight', 'agricultural'],
+    relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'financial'],
     sourceUrl: 'https://www.ice.com/',
   },
   'GBPUSD=X': {
@@ -118,7 +118,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'energy',
     unit: '',
     currency: 'USD',
-    relevantSectors: ['energy', 'freight', 'agricultural', 'food'],
+    relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'construction', 'financial'],
     sourceUrl: 'https://www.bankofengland.co.uk/',
   },
   'GBPEUR=X': {
@@ -127,7 +127,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'energy',
     unit: '',
     currency: 'EUR',
-    relevantSectors: ['energy', 'freight', 'agricultural', 'food'],
+    relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'construction', 'financial'],
     sourceUrl: 'https://www.bankofengland.co.uk/',
   },
   '^GSPC': {
@@ -136,7 +136,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'metals',
     unit: 'pts',
     currency: 'USD',
-    relevantSectors: ['energy', 'freight'],
+    relevantSectors: ['financial'],
     sourceUrl: 'https://www.spglobal.com/',
   },
   '^FTSE': {
@@ -145,7 +145,7 @@ const SYMBOL_CONFIG: Record<string, {
     category: 'metals',
     unit: 'pts',
     currency: 'GBp',
-    relevantSectors: ['energy', 'freight'],
+    relevantSectors: ['financial'],
     sourceUrl: 'https://www.londonstockexchange.com/',
   },
 };
@@ -349,7 +349,7 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
         market: 'Energy / Fuel',
         evidence: `Brent crude at $${fmt(brentPrice, 2)}/bbl (${brentChangePct >= 0 ? '+' : ''}${fmt(brentChangePct, 2)}% overnight). EIA daily spot data.`,
         source: brentEia?.success ? 'EIA Brent Crude Spot' : 'Stooq/Yahoo Finance',
-        relevantSectors: ['energy', 'freight', 'agricultural'],
+        relevantSectors: ['food_importer', 'chemicals', 'freight_3pl', 'construction'],
         roi: {
           savingAmount: Math.round(50000 * (Math.abs(brentChangePct) / 100) * brentPrice * 0.001),
           tonnage: 50000,
@@ -369,7 +369,7 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
         market: 'Energy / Fuel',
         evidence: `Brent at $${fmt(brentPrice, 2)}/bbl, +${fmt(brentChangePct, 2)}% overnight move. EIA/Stooq data.`,
         source: brentEia?.success ? 'EIA Brent Crude Spot' : 'Stooq/Yahoo Finance',
-        relevantSectors: ['energy', 'freight', 'agricultural'],
+        relevantSectors: ['food_importer', 'chemicals', 'freight_3pl', 'construction', 'financial'],
       });
     } else if (signal === 'WATCH') {
       actions.push({
@@ -380,7 +380,7 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
         market: 'Energy / Fuel',
         evidence: `Brent at $${fmt(brentPrice, 2)}/bbl. Overnight change: ${brentChangePct >= 0 ? '+' : ''}${fmt(brentChangePct, 2)}%.`,
         source: brentEia?.success ? 'EIA Brent Crude Spot' : 'Stooq/Yahoo Finance',
-        relevantSectors: ['energy', 'freight'],
+        relevantSectors: ['chemicals', 'freight_3pl', 'construction', 'financial'],
       });
     }
   }
@@ -395,33 +395,33 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
           id: `action-${actionId++}`,
           signal: 'BUY',
           title: `Grain buying window — Wheat down ${Math.abs(cp).toFixed(1)}% overnight`,
-          detail: `CBOT Wheat is at ${fmt(wheat.price, 0)}¢/bu, down ${Math.abs(cp).toFixed(1)}% overnight. If you have grain requirements in the next 1–3 months, this dip could represent a meaningful saving on forward purchases. Contact your grain supplier or trader for today's available cover.`,
+          detail: `CBOT Wheat is at ${fmt(wheat.price, 0)}¢/bu, down ${Math.abs(cp).toFixed(1)}% overnight. If you have grain requirements in the next 1–3 months — whether for food production, animal feed, or next season's fertilizer planning — this dip could represent a meaningful saving. Contact your supplier or trader for today's available forward cover.`,
           market: 'Agricultural / Grain',
           evidence: `CBOT Wheat at ${fmt(wheat.price, 0)}¢/bu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight). Stooq/CBOT data.`,
           source: 'Stooq via Yahoo Finance',
-          relevantSectors: ['agricultural', 'food'],
+          relevantSectors: ['food_importer', 'financial'],
         });
       } else if (signal === 'URGENT') {
         actions.push({
           id: `action-${actionId++}`,
           signal: 'URGENT',
           title: `Grain prices rising — Wheat up ${cp.toFixed(1)}% overnight`,
-          detail: `CBOT Wheat has moved ${cp.toFixed(1)}% higher to ${fmt(wheat.price, 0)}¢/bu overnight. Review your grain procurement position before markets open. Check whether to bring forward any planned purchases and review open fixed-price contracts for exposure.`,
+          detail: `CBOT Wheat has moved ${cp.toFixed(1)}% higher to ${fmt(wheat.price, 0)}¢/bu overnight. For UK food importers and supermarket suppliers, this feeds directly into next season's input pricing and could put further pressure on already-sensitive food inflation. Review your grain procurement position before the London open and check whether to bring forward any planned purchases.`,
           market: 'Agricultural / Grain',
           evidence: `CBOT Wheat at ${fmt(wheat.price, 0)}¢/bu, +${fmt(cp, 2)}% overnight. Stooq/CBOT data.`,
           source: 'Stooq via Yahoo Finance',
-          relevantSectors: ['agricultural', 'food'],
+          relevantSectors: ['food_importer', 'financial'],
         });
       } else if (signal === 'WATCH') {
         actions.push({
           id: `action-${actionId++}`,
           signal: 'WATCH',
           title: `Grain softening — Wheat ${cp >= 0 ? 'up' : 'down'} ${Math.abs(cp).toFixed(1)}% overnight`,
-          detail: `CBOT Wheat at ${fmt(wheat.price, 0)}¢/bu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}%). A modest but directional overnight move worth tracking. If this continues, it may develop into a buying opportunity (falling) or a cost pressure (rising).`,
+          detail: `CBOT Wheat at ${fmt(wheat.price, 0)}¢/bu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}%). A modest but directional overnight move. UK food importers and supermarket suppliers should track this — if the move continues, it will feed into fertilizer cost planning and next season's crop input pricing. Watch for further movement before acting.`,
           market: 'Agricultural / Grain',
           evidence: `CBOT Wheat at ${fmt(wheat.price, 0)}¢/bu. Overnight change: ${fmt(cp, 2)}%.`,
           source: 'Stooq via Yahoo Finance',
-          relevantSectors: ['agricultural', 'food'],
+          relevantSectors: ['food_importer', 'financial'],
         });
       }
     }
@@ -435,11 +435,11 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
           id: `action-${actionId++}`,
           signal,
           title: `Natural gas ${cp < 0 ? 'falls' : 'rises'} ${Math.abs(cp).toFixed(1)}% — review gas and fertiliser exposure`,
-          detail: `NYMEX Natural Gas is at $${fmt(ng.price, 3)}/MMBtu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight). ${cp < 0 ? 'A dip creates a potential buying window for forward gas or energy contracts — and natural gas prices feed directly into fertiliser costs.' : 'Rising gas prices increase both energy and fertiliser input costs. Check your exposure on both fronts before markets open.'}`,
+          detail: `NYMEX Natural Gas is at $${fmt(ng.price, 3)}/MMBtu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight). ${cp < 0 ? 'A dip creates a potential buying window for forward gas or energy contracts. Natural gas is also a key feedstock for chemical and plastics manufacturers — and prices feed directly into fertiliser costs.' : 'Rising gas prices increase feedstock costs for chemical and plastics manufacturers, raise fertiliser input costs, and push up energy bills across manufacturing. Check your exposure on both fronts before the London open.'}`,
           market: 'Energy / Gas',
           evidence: `NYMEX Natural Gas: $${fmt(ng.price, 3)}/MMBtu, ${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight.`,
           source: 'Stooq via Yahoo Finance',
-          relevantSectors: ['energy', 'agricultural'],
+          relevantSectors: ['chemicals', 'food_importer', 'construction', 'financial'],
         });
       }
     }
@@ -453,11 +453,11 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
           id: `action-${actionId++}`,
           signal: gbpUsdChange <= -1.5 ? 'URGENT' : 'WATCH',
           title: `Sterling ${gbpUsdChange < 0 ? 'weakening' : 'weak'} at ${fmt(gbpUsdRate, 4)} — USD commodity costs rising`,
-          detail: `GBP/USD is at ${fmt(gbpUsdRate, 4)}${gbpUsdChange !== 0 ? ` (${gbpUsdChange >= 0 ? '+' : ''}${fmt(gbpUsdChange, 2)}% overnight)` : ''}. All USD-priced commodities — oil, grain, metals — are now more expensive in sterling terms. Review any upcoming USD-denominated purchases and consider whether to accelerate or hedge.`,
+          detail: `GBP/USD is at ${fmt(gbpUsdRate, 4)}${gbpUsdChange !== 0 ? ` (${gbpUsdChange >= 0 ? '+' : ''}${fmt(gbpUsdChange, 2)}% overnight)` : ''}. All USD-priced commodities — oil, grain, metals — are now more expensive in sterling terms. For SME freight forwarders with USD-denominated war risk surcharges, this compounds margin pressure. For IFAs, it will affect client portfolios exposed to dollar assets. Review any upcoming USD-denominated purchases and consider whether to accelerate or hedge.`,
           market: 'FX / GBP',
           evidence: `GBP/USD at ${fmt(gbpUsdRate, 4)}. ${gbpUsdChange !== 0 ? `Overnight move: ${fmt(gbpUsdChange, 2)}%.` : 'Source: open.er-api.com interbank mid-rate.'}`,
           source: gbpUsdQ ? 'Stooq via Yahoo Finance' : 'ExchangeRate.host',
-          relevantSectors: ['energy', 'freight', 'agricultural'],
+          relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'construction', 'financial'],
         });
       }
     }
@@ -471,11 +471,11 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
           id: `action-${actionId++}`,
           signal,
           title: `Corn ${cp < 0 ? 'dips' : 'spikes'} ${Math.abs(cp).toFixed(1)}% overnight`,
-          detail: `CBOT Corn at ${fmt(corn.price, 0)}¢/bu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight). ${cp < 0 ? 'A buying opportunity may be developing for feed or food grade corn — contact your supplier for availability.' : 'Rising corn prices will feed through to animal feed and food input costs. Review your forward cover position.'}`,
+          detail: `CBOT Corn at ${fmt(corn.price, 0)}¢/bu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight). ${cp < 0 ? 'A buying opportunity may be developing for feed or food-grade corn — contact your supplier for availability and forward cover pricing.' : 'Rising corn prices will feed through to animal feed costs and food input pricing. For UK food importers this compounds fertilizer-driven margin pressure. Review your forward cover position before the London open.'}`,
           market: 'Agricultural / Grain',
           evidence: `CBOT Corn at ${fmt(corn.price, 0)}¢/bu, ${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight.`,
           source: 'Stooq via Yahoo Finance',
-          relevantSectors: ['agricultural', 'food'],
+          relevantSectors: ['food_importer', 'financial'],
         });
       }
     }
@@ -488,11 +488,11 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
           id: `action-${actionId++}`,
           signal: cp >= 2 ? 'URGENT' : 'WATCH',
           title: `Gold ${cp < 0 ? 'falls' : 'rises'} ${Math.abs(cp).toFixed(1)}% — risk sentiment indicator`,
-          detail: `Gold is at $${fmt(gold.price, 0)}/oz (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight). ${cp > 0 ? 'Rising gold typically signals risk-off sentiment or geopolitical stress — watch for correlated moves in oil and freight.' : 'Falling gold may signal reduced geopolitical risk premium — could ease pressure on energy prices.'}`,
+          detail: `Gold is at $${fmt(gold.price, 0)}/oz (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight). ${cp > 0 ? 'Rising gold typically signals risk-off sentiment or geopolitical stress — relevant context for IFAs and portfolio managers managing client exposure ahead of the London open. Watch for correlated moves in oil and freight war risk premiums.' : 'Falling gold may signal reduced geopolitical risk premium — a positive signal for IFAs. Could ease pressure on energy prices and freight war risk surcharges.'}`,
           market: 'Metals / Gold',
           evidence: `COMEX Gold: $${fmt(gold.price, 0)}/oz, ${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight.`,
           source: 'Stooq via Yahoo Finance',
-          relevantSectors: ['energy', 'freight'],
+          relevantSectors: ['financial'],
         });
       }
     }
@@ -503,11 +503,50 @@ export function deriveActionItems(feeds: FeedPayload | null): ActionItem[] {
         id: `action-${actionId++}`,
         signal: 'WATCH',
         title: `Sterling weak at ${fmt(gbpUsd, 4)} — USD commodity costs elevated`,
-        detail: `GBP/USD at ${fmt(gbpUsd, 4)}. USD-priced commodities (oil, grain, metals) are more expensive in sterling terms at this level. Review upcoming USD purchases and consider hedging options.`,
+        detail: `GBP/USD at ${fmt(gbpUsd, 4)}. USD-priced commodities (oil, grain, metals) are more expensive in sterling terms at this level. SME freight forwarders face compounded margin pressure where war risk surcharges are USD-denominated. Review upcoming USD purchases and consider hedging options.`,
         market: 'FX / GBP',
         evidence: `GBP/USD at ${fmt(gbpUsd, 4)}. Source: open.er-api.com interbank mid-rate.`,
         source: 'ExchangeRate.host',
-        relevantSectors: ['energy', 'freight', 'agricultural'],
+        relevantSectors: ['food_importer', 'freight_3pl', 'chemicals', 'construction', 'financial'],
+      });
+    }
+  }
+
+  if (yahooSrc?.success) {
+    const ng = yahooSrc.quotes?.find(q => q.symbol === 'NG=F');
+    const brentPct = brentEia?.change_pct ?? yahooSrc?.quotes?.find(q => q.symbol === 'BZ=F')?.changePercent ?? 0;
+    if (ng?.price != null && ng.changePercent != null && Math.abs(ng.changePercent) >= 0.5) {
+      const cp = ng.changePercent;
+      const fertilizerSignal = signalFromChange(cp);
+      if (fertilizerSignal !== 'HOLD') {
+        actions.push({
+          id: `action-${actionId++}`,
+          signal: fertilizerSignal,
+          title: `Fertilizer feedstock costs ${cp > 0 ? 'rising' : 'falling'} — natural gas ${cp > 0 ? 'up' : 'down'} ${Math.abs(cp).toFixed(1)}%`,
+          detail: `Natural gas drives ~70–80% of urea and ammonia production costs. With NYMEX gas at $${fmt(ng.price, 3)}/MMBtu (${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight), expect fertilizer pricing to move in the same direction. UK food importers and supermarket suppliers should factor this into next season's crop input cost projections — fertilizer pricing typically lags gas by 4–8 weeks.`,
+          market: 'Fertilizer / Gas Feedstock',
+          evidence: `NYMEX Natural Gas: $${fmt(ng.price, 3)}/MMBtu, ${cp >= 0 ? '+' : ''}${fmt(cp, 2)}% overnight. Brent crude: ${brentPct >= 0 ? '+' : ''}${fmt(brentPct, 2)}%.`,
+          source: 'Stooq via Yahoo Finance',
+          relevantSectors: ['food_importer', 'chemicals', 'financial'],
+        });
+      }
+    }
+
+    const freightKeywords = ['red sea', 'houthi', 'suez', 'war risk', 'surcharge', 'divert', 'reroute'];
+    const hasFreightAlert = feeds?.sources.some(s =>
+      s.items?.some(i => freightKeywords.some(k => (i.title + ' ' + i.summary).toLowerCase().includes(k)))
+    ) ?? false;
+
+    if (hasFreightAlert) {
+      actions.push({
+        id: `action-${actionId++}`,
+        signal: 'URGENT',
+        title: 'War risk surcharges elevated — Red Sea / Suez situation active',
+        detail: `Live news feeds are showing active Red Sea or Suez Canal disruption signals. CMA CGM and Hapag-Lloyd war risk surcharges are likely in effect, hitting SME freight forwarder and 3PL margins before they can reprice customers. Contact your shipping lines immediately to confirm current surcharge levels and assess whether to reroute via Cape of Good Hope for any pending shipments.`,
+        market: 'Freight / War Risk',
+        evidence: 'Red Sea / Suez disruption keywords detected across live news feeds.',
+        source: 'Reuters / Al Jazeera / Shipping RSS',
+        relevantSectors: ['freight_3pl', 'food_importer', 'construction', 'financial'],
       });
     }
   }

@@ -1,6 +1,6 @@
 export type Signal = 'BUY' | 'HOLD' | 'WATCH' | 'URGENT';
 
-export type SectorId = 'agricultural' | 'freight' | 'food' | 'energy';
+export type SectorId = 'food_importer' | 'chemicals' | 'freight_3pl' | 'construction' | 'financial';
 
 export interface PricePoint {
   timestamp: string;

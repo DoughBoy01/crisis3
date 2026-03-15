@@ -52,31 +52,35 @@ const categories: { id: MarketCategory; label: string; description: string }[] =
 const SUBSCRIPTION_COST_ANNUAL = 588;
 
 const SECTOR_MARKET_KEYWORDS: Record<string, string[]> = {
-  agricultural: ['grain', 'wheat', 'corn', 'soybean', 'fertilizer', 'fertiliser', 'crop', 'harvest', 'agricultural', 'urea', 'ammonia', 'fuel', 'oil', 'gas'],
-  freight:      ['freight', 'shipping', 'container', 'tanker', 'vessel', 'port', 'red sea', 'suez', 'panama', 'bdi', 'bulk', 'logistics'],
-  food:         ['grain', 'wheat', 'corn', 'soybean', 'oil', 'food', 'commodity', 'packaging', 'fx', 'sterling', 'gbp'],
-  energy:       ['oil', 'crude', 'brent', 'gas', 'energy', 'fuel', 'diesel', 'lng', 'power', 'electricity'],
+  food_importer:  ['grain', 'wheat', 'corn', 'soybean', 'fertilizer', 'fertiliser', 'crop', 'harvest', 'food', 'packaging', 'oil', 'gas', 'gbp', 'sterling', 'fx'],
+  chemicals:      ['gas', 'lng', 'oil', 'crude', 'brent', 'feedstock', 'plastics', 'chemical', 'petrochemical', 'energy', 'electricity'],
+  freight_3pl:    ['freight', 'shipping', 'container', 'tanker', 'vessel', 'port', 'red sea', 'suez', 'panama', 'bdi', 'bulk', 'logistics', 'war risk', 'surcharge', 'houthi'],
+  construction:   ['steel', 'fuel', 'oil', 'diesel', 'aluminium', 'energy', 'gas', 'materials', 'commodity', 'gbp'],
+  financial:      ['oil', 'crude', 'brent', 'gas', 'grain', 'wheat', 'gold', 'ftse', 'gbp', 'sterling', 'dollar', 'fx', 'inflation', 'rates'],
 };
 
 const SECTOR_AFFECTED_MARKET_KEYWORDS: Record<string, string[]> = {
-  agricultural: ['Oil', 'Gas', 'Grain', 'Fertilizer', 'Commodities', 'FX'],
-  freight:      ['Oil', 'Freight', 'Gas', 'Commodities'],
-  food:         ['Grain', 'Oil', 'Gas', 'FX', 'Commodities'],
-  energy:       ['Oil', 'Gas', 'Commodities'],
+  food_importer: ['Grain', 'Oil', 'Gas', 'FX', 'Fertilizer', 'Commodities'],
+  chemicals:     ['Oil', 'Gas', 'Commodities'],
+  freight_3pl:   ['Oil', 'Freight', 'Gas', 'Commodities'],
+  construction:  ['Oil', 'Gas', 'Commodities'],
+  financial:     ['Oil', 'Gas', 'Grain', 'FX', 'Commodities'],
 };
 
 const SECTOR_SUPPLY_CATEGORIES: Record<string, string[]> = {
-  agricultural: ['agricultural', 'energy', 'fertilizer'],
-  freight:      ['freight', 'energy'],
-  food:         ['agricultural', 'energy', 'fertilizer'],
-  energy:       ['energy'],
+  food_importer: ['agricultural', 'energy', 'fertilizer'],
+  chemicals:     ['energy'],
+  freight_3pl:   ['freight', 'energy'],
+  construction:  ['energy', 'metals'],
+  financial:     ['agricultural', 'energy', 'fertilizer', 'freight', 'metals'],
 };
 
 const SECTOR_PLAYBOOK_TRIGGERS: Record<string, string[]> = {
-  agricultural: ['PRICE_SPIKE', 'SUPPLY_DISRUPTION', 'GEOPOLITICAL', 'FX_STRESS'],
-  freight:      ['FREIGHT_SURGE', 'GEOPOLITICAL', 'PRICE_SPIKE'],
-  food:         ['SUPPLY_DISRUPTION', 'PRICE_SPIKE', 'FX_STRESS', 'GEOPOLITICAL'],
-  energy:       ['PRICE_SPIKE', 'GEOPOLITICAL', 'FX_STRESS'],
+  food_importer: ['PRICE_SPIKE', 'SUPPLY_DISRUPTION', 'GEOPOLITICAL', 'FX_STRESS'],
+  chemicals:     ['PRICE_SPIKE', 'GEOPOLITICAL', 'FX_STRESS'],
+  freight_3pl:   ['FREIGHT_SURGE', 'GEOPOLITICAL', 'PRICE_SPIKE'],
+  construction:  ['PRICE_SPIKE', 'GEOPOLITICAL', 'FX_STRESS'],
+  financial:     ['PRICE_SPIKE', 'SUPPLY_DISRUPTION', 'FREIGHT_SURGE', 'GEOPOLITICAL', 'FX_STRESS'],
 };
 
 function SectionDivider({ label, sub }: { label: string; sub?: string }) {
