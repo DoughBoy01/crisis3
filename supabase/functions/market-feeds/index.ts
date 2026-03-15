@@ -317,8 +317,18 @@ async function fetchAHDBRSS(): Promise<Record<string, unknown>> {
     { url: "https://ahdb.org.uk/rss", name: "AHDB" },
     { url: "https://ahdb.org.uk/news/feed", name: "AHDB" },
     { url: "https://www.farminguk.com/RSS/News", name: "Farming UK" },
-    { url: "https://www.agriland.co.uk/feed/", name: "AgrilandUK" },
+    { url: "https://www.farmersguardian.com/feed/rss/category/arable", name: "Farmers Guardian Arable" },
+    { url: "https://www.farmersguardian.com/feed/rss/category/livestock", name: "Farmers Guardian Livestock" },
+    { url: "https://www.farmersguardian.com/feed/rss/category/dairy", name: "Farmers Guardian Dairy" },
+    { url: "https://www.farmersguardian.com/feed/rss/category/farm-business", name: "Farmers Guardian Farm Business" },
+    { url: "https://www.agriland.co.uk/feed/", name: "Agriland UK" },
     { url: "https://www.farmersguide.co.uk/feed/", name: "Farmers Guide" },
+    { url: "https://defrafarming.blog.gov.uk/feed/", name: "Defra Farming Blog" },
+    { url: "https://www.agri-tech-e.co.uk/feed/", name: "Agri-TechE" },
+    { url: "https://agricology.co.uk/feed/", name: "Agricology" },
+    { url: "https://m.farms.com/Portals/_default/RSS_Portal/News_All.xml", name: "Farms.com All News" },
+    { url: "https://m.farms.com/Portals/_default/RSS_Portal/News_Crop.xml", name: "Farms.com Crops" },
+    { url: "https://www.agri-pulse.com/rss", name: "Agri-Pulse" },
   ];
   let lastError = "All AHDB/UK agriculture RSS URLs failed";
   for (const { url, name } of candidates) {
@@ -409,10 +419,13 @@ async function fetchAlJazeeraRSS(): Promise<Record<string, unknown>> {
 
 async function fetchFarmersWeeklyRSS(): Promise<Record<string, unknown>> {
   const fetchTime = nowISO();
-  const keywords = ["fertiliser", "fertilizer", "urea", "supply", "price", "cost", "nitrogen", "ammonia", "wheat", "barley", "rapeseed", "crop", "harvest"];
+  const keywords = ["fertiliser", "fertilizer", "urea", "supply", "price", "cost", "nitrogen", "ammonia", "wheat", "barley", "rapeseed", "crop", "harvest", "arable", "cereal"];
   const urls = [
     "https://www.fwi.co.uk/arable/feed",
     "https://www.fwi.co.uk/feed",
+    "https://www.farmersguardian.com/feed/rss/category/arable",
+    "https://www.farmersguardian.com/feed/rss/category/farm-business",
+    "https://www.farminguk.com/RSS/News",
   ];
   let lastError = "All Farmers Weekly RSS URLs failed";
   for (const url of urls) {
@@ -436,7 +449,7 @@ async function fetchFarmersWeeklyRSS(): Promise<Record<string, unknown>> {
         newest_item_published: newestPub,
         data_age_minutes: dataAge ?? age,
         accuracy_score: feedAccuracyScore(age, dataAge, 1440, true),
-        note: `Farmers Weekly — UK agricultural industry news (via ${url})`,
+        note: `UK arable & farm news (via ${url})`,
       };
     } catch (e) {
       lastError = String(e);
