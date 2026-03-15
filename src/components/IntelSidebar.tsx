@@ -277,18 +277,24 @@ export default function IntelSidebar({
       </Card>
 
       <Card className="bg-card overflow-hidden">
-        <CardHeader className="px-4 py-3 pb-0 space-y-0">
-          <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Signal Guide</p>
-        </CardHeader>
-        <CardContent className="px-4 py-3 space-y-2">
+        <CardContent className="px-4 py-3 space-y-1.5">
+          <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase mb-2">Signal Guide</p>
           {signalLegend.map(s => (
-            <div key={s.signal} className={cn("rounded-lg border p-2.5", s.bg)}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className={cn("w-2 h-2 rounded-full", s.dot)} />
-                <span className={cn("text-xs font-bold tracking-widest", s.color)}>{s.signal}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">{s.desc}</p>
-            </div>
+            <TooltipProvider key={s.signal} delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 cursor-default group">
+                    <span className={cn("w-2 h-2 rounded-full shrink-0", s.dot)} />
+                    <span className={cn("text-[11px] font-bold tracking-widest w-14 shrink-0", s.color)}>{s.signal}</span>
+                    <p className="text-[10px] text-muted-foreground/60 leading-tight truncate">{s.desc}</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-[220px] text-xs">
+                  <p className={cn("font-bold mb-0.5", s.color)}>{s.signal}</p>
+                  <p className="text-muted-foreground">{s.desc}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ))}
         </CardContent>
       </Card>
