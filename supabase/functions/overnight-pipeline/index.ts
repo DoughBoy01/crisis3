@@ -104,35 +104,46 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── Step 2: Generate AI briefs for all personas ───────────────────────────
+    // ── Step 2: Generate AI briefs — one invocation per persona (parallel) ───
     const step2Start = Date.now();
     let briefGenerated = false;
 
     if (allPersonasExist && !force) {
-      const missingMsg = `All ${ALL_PERSONAS.length} persona briefs already exist for ${todayUtc}`;
-      logs.push({ step: "ai-brief", status: "skipped", detail: missingMsg });
+      logs.push({ step: "ai-brief", status: "skipped", detail: `All ${ALL_PERSONAS.length} persona briefs already exist for ${todayUtc}` });
     } else {
-      const briefBody: Record<string, unknown> = { all_personas: true };
-      if (feedData) briefBody.feeds = feedData;
-      if (scoutData) briefBody.scout = scoutData;
-      if (force) briefBody.force = true;
+      const personasToGenerate = force
+        ? ALL_PERSONAS
+        : ALL_PERSONAS.filter(p => !existingPersonas.has(p));
 
-      const result = await callFunction(supabaseUrl, anonKey, "ai-brief", briefBody);
+      const personaResults = await Promise.all(
+        personasToGenerate.map(async (persona) => {
+          const briefBody: Record<string, unknown> = { persona, force: force ? true : undefined };
+          if (feedData) briefBody.feeds = feedData;
+          if (scoutData) briefBody.scout = scoutData;
+          const result = await callFunction(supabaseUrl, anonKey, "ai-brief", briefBody);
+          if (!result.ok) {
+            return { persona, error: `HTTP ${result.status}: ${JSON.stringify(result.data)}` };
+          }
+          const d = result.data as { error?: string; cached?: boolean };
+          if (d?.error) return { persona, error: d.error };
+          return { persona, cached: d?.cached ?? false };
+        })
+      );
+
       const duration_ms = Date.now() - step2Start;
+      const succeeded = personaResults.filter(r => !r.error);
+      const failed = personaResults.filter(r => !!r.error);
 
-      if (result.ok) {
-        briefGenerated = true;
-        const detail = result.data as { all_personas?: boolean; results?: Record<string, unknown> };
-        const personaCount = detail?.results ? Object.keys(detail.results).length : 0;
-        logs.push({
-          step: "ai-brief",
-          status: "ok",
-          detail: `Persona briefs generated: ${personaCount} personas`,
-          duration_ms,
-        });
-      } else {
-        logs.push({ step: "ai-brief", status: "error", detail: `HTTP ${result.status}: ${JSON.stringify(result.data)}`, duration_ms });
-      }
+      if (succeeded.length > 0) briefGenerated = true;
+
+      logs.push({
+        step: "ai-brief",
+        status: failed.length > 0 ? (succeeded.length > 0 ? "warn" : "error") : "ok",
+        detail: failed.length > 0
+          ? `${succeeded.length}/${personasToGenerate.length} personas succeeded. Failed: ${failed.map(f => `${f.persona}: ${f.error}`).join(" | ")}`
+          : `All ${succeeded.length} persona briefs generated successfully`,
+        duration_ms,
+      });
     }
 
     // ── Step 3: Send morning brief emails ────────────────────────────────────
