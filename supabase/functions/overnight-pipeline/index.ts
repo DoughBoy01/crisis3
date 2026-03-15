@@ -58,11 +58,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: existingBrief } = await db
+    const ALL_PERSONAS = ["general", "trader", "agri", "logistics", "analyst"];
+    const { data: existingBriefs } = await db
       .from("daily_brief")
-      .select("id, generated_at")
-      .eq("brief_date", todayUtc)
-      .maybeSingle();
+      .select("id, persona, generated_at")
+      .eq("brief_date", todayUtc);
+
+    const existingPersonas = new Set((existingBriefs ?? []).map((b: { persona: string }) => b.persona));
+    const allPersonasExist = ALL_PERSONAS.every(p => existingPersonas.has(p));
 
     // ── Step 0: Run scouting agent ────────────────────────────────────────────
     const step0Start = Date.now();
@@ -105,8 +108,9 @@ Deno.serve(async (req: Request) => {
     const step2Start = Date.now();
     let briefGenerated = false;
 
-    if (existingBrief && !force) {
-      logs.push({ step: "ai-brief", status: "skipped", detail: `Brief already exists for ${todayUtc} (generated at ${existingBrief.generated_at})` });
+    if (allPersonasExist && !force) {
+      const missingMsg = `All ${ALL_PERSONAS.length} persona briefs already exist for ${todayUtc}`;
+      logs.push({ step: "ai-brief", status: "skipped", detail: missingMsg });
     } else {
       const briefBody: Record<string, unknown> = { all_personas: true };
       if (feedData) briefBody.feeds = feedData;

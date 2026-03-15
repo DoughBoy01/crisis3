@@ -111,22 +111,23 @@ export default function DevControlsPanel() {
     const logs: StepLog[] = [];
     try {
       const t0 = Date.now();
-      const briefCheck = await callEdge('ai-brief', {}) as Record<string, unknown>;
+      const briefCheck = await callEdge('ai-brief', { all_personas: true }) as Record<string, unknown>;
       const briefErr = briefCheck.error as string | undefined;
-      const briefCached = briefCheck.cached as boolean | undefined;
-      const hasBrief = !!briefCheck.brief;
-      if (briefErr || !hasBrief) {
-        const detail = briefErr ?? 'ai-brief returned no brief';
+      const results = briefCheck.results as Record<string, unknown> | undefined;
+      if (briefErr || !results) {
+        const detail = briefErr ?? 'ai-brief returned no results';
         logs.push({ step: 'ai-brief', status: 'error', detail, duration_ms: Date.now() - t0 });
         setResult({ success: false, logs, error: detail });
         setRunStatus('error');
         setLogsOpen(true);
         return;
       }
+      const personaCount = Object.keys(results).length;
+      const personaErrors = Object.entries(results).filter(([, v]) => (v as Record<string, unknown>).error);
       logs.push({
         step: 'ai-brief',
-        status: 'ok',
-        detail: briefCached ? 'Using cached brief for today' : 'Brief generated',
+        status: personaErrors.length > 0 ? 'error' : 'ok',
+        detail: `${personaCount} persona briefs ready${personaErrors.length > 0 ? ` (${personaErrors.length} failed: ${personaErrors.map(([k]) => k).join(', ')})` : ''}`,
         duration_ms: Date.now() - t0,
       });
 

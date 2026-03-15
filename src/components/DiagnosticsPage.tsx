@@ -20,6 +20,7 @@ import {
   Radar,
   Mail,
   Users,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DevControlsPanel from './DevControlsPanel';
@@ -71,6 +72,26 @@ interface Subscriber {
   last_sent_at: string | null;
 }
 
+const ALL_PERSONAS = ['general', 'trader', 'agri', 'logistics', 'analyst'] as const;
+type PersonaId = typeof ALL_PERSONAS[number];
+
+const PERSONA_LABELS: Record<PersonaId, string> = {
+  general: 'Business Overview',
+  trader: 'Commodity Trader',
+  agri: 'Agri Buyer',
+  logistics: 'Logistics Director',
+  analyst: 'Risk Analyst',
+};
+
+interface PersonaBriefStatus {
+  persona: PersonaId;
+  exists: boolean;
+  generated_at: string | null;
+  model: string | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+}
+
 interface DiagnosticsPageProps {
   onBack: () => void;
   onHome: () => void;
@@ -84,6 +105,8 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
   const [edgeFeedData, setEdgeFeedData] = useState<Record<string, unknown> | null>(null);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [subscribersLoading, setSubscribersLoading] = useState(true);
+  const [personaBriefs, setPersonaBriefs] = useState<PersonaBriefStatus[]>([]);
+  const [personaBriefsLoading, setPersonaBriefsLoading] = useState(true);
   const { run: scoutRun, loading: scoutLoading } = useScoutIntel();
 
   useEffect(() => {
@@ -95,6 +118,30 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
         .order('created_at', { ascending: false });
       setSubscribers((data as Subscriber[]) ?? []);
       setSubscribersLoading(false);
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      setPersonaBriefsLoading(true);
+      const todayUtc = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from('daily_brief')
+        .select('persona, generated_at, model, prompt_tokens, completion_tokens')
+        .eq('brief_date', todayUtc);
+      const existingMap = new Map((data ?? []).map((b: Record<string, unknown>) => [b.persona as string, b]));
+      setPersonaBriefs(ALL_PERSONAS.map(p => {
+        const b = existingMap.get(p) as Record<string, unknown> | undefined;
+        return {
+          persona: p,
+          exists: !!b,
+          generated_at: (b?.generated_at as string) ?? null,
+          model: (b?.model as string) ?? null,
+          prompt_tokens: (b?.prompt_tokens as number) ?? null,
+          completion_tokens: (b?.completion_tokens as number) ?? null,
+        };
+      }));
+      setPersonaBriefsLoading(false);
     })();
   }, []);
 
@@ -531,6 +578,62 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
           <BriefAccuracyPanel />
         </div>
 
+        {/* Persona Brief Status */}
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText size={13} className="text-sky-400" />
+            <h2 className="text-xs font-bold text-slate-400 tracking-widest uppercase">Today's Persona Briefs</h2>
+            <div className="flex-1 h-px bg-slate-800" />
+            {!personaBriefsLoading && (
+              <span className="text-[10px] font-mono text-slate-500">
+                {personaBriefs.filter(b => b.exists).length}/{personaBriefs.length} generated · {new Date().toISOString().slice(0, 10)}
+              </span>
+            )}
+          </div>
+          {personaBriefsLoading ? (
+            <div className="flex items-center gap-2 text-slate-500 text-sm py-4">
+              <Loader size={13} className="animate-spin" />
+              Loading brief status...
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 overflow-hidden divide-y divide-slate-800/50">
+              {personaBriefs.map(b => (
+                <div key={b.persona} className="flex items-center gap-3 px-4 py-3">
+                  {b.exists
+                    ? <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+                    : <XCircle size={14} className="text-red-400 shrink-0" />
+                  }
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-200">{PERSONA_LABELS[b.persona]}</span>
+                      <span className="text-[10px] font-mono text-slate-600 uppercase tracking-wider">{b.persona}</span>
+                    </div>
+                    {b.exists && b.generated_at && (
+                      <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                        {new Date(b.generated_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} UTC
+                        {b.model && b.model !== 'none' && ` · ${b.model}`}
+                        {b.prompt_tokens != null && ` · ${b.prompt_tokens.toLocaleString()} prompt`}
+                        {b.completion_tokens != null && ` / ${b.completion_tokens.toLocaleString()} completion tokens`}
+                      </div>
+                    )}
+                    {!b.exists && (
+                      <div className="text-[11px] text-red-400/70 mt-0.5">Not generated — run the pipeline to create this brief</div>
+                    )}
+                  </div>
+                  <span className={cn(
+                    'text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded border shrink-0',
+                    b.exists
+                      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                      : 'text-red-400 bg-red-500/10 border-red-500/20'
+                  )}>
+                    {b.exists ? 'ready' : 'missing'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Email Subscribers */}
         <div className="mt-8 pb-8">
           <div className="flex items-center gap-2 mb-4">
@@ -586,14 +689,12 @@ function CategoryIcon({ category }: { category: ServiceResult['category'] }) {
   return <Rss size={11} className="text-slate-500" />;
 }
 
-const PERSONA_LABELS: Record<string, string> = {
-  procurement: 'Procurement Manager',
+const SUBSCRIBER_PERSONA_LABELS: Record<string, string> = {
   trader: 'Commodity Trader',
-  analyst: 'Supply Chain Analyst',
-  farmer: 'Farmer / Grower',
-  executive: 'Executive / C-Suite',
   agri: 'Agri Buyer',
-  general: 'General',
+  logistics: 'Logistics Director',
+  analyst: 'Risk Analyst',
+  general: 'Business Overview',
   unset: 'No Persona',
 };
 
@@ -617,7 +718,7 @@ function SubscribersByCategory({ subscribers }: { subscribers: Subscriber[] }) {
             <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-800/60 bg-slate-900/60">
               <Users size={13} className="text-sky-400 shrink-0" />
               <span className="text-sm font-semibold text-slate-200">
-                {PERSONA_LABELS[persona] ?? persona.charAt(0).toUpperCase() + persona.slice(1)}
+                {SUBSCRIBER_PERSONA_LABELS[persona] ?? persona.charAt(0).toUpperCase() + persona.slice(1)}
               </span>
               <span className="ml-auto flex items-center gap-3 text-[10px] font-mono text-slate-500">
                 <span className="text-emerald-400 font-semibold">{activeCount} active</span>
