@@ -407,13 +407,18 @@ function buildHtmlEmail(
     ? buildCompoundingRiskBlock(brief.compounding_risk, meta.accentColor)
     : "";
 
-  const threeThingsRows = (brief.three_things ?? []).map((thing, i) => `
+  const threeThingsRows = (brief.three_things ?? []).map((thing, i) => {
+    const isObj = thing && typeof thing === "object" && !Array.isArray(thing);
+    const title = isObj ? (thing as Record<string, string>).title ?? "" : "";
+    const body = isObj ? (thing as Record<string, string>).body ?? String(thing) : String(thing);
+    return `
     <tr>
       <td style="padding:10px 0;vertical-align:top;width:36px;">
         <span style="display:inline-block;width:26px;height:26px;background:${meta.accentColor};color:#0f172a;font-size:12px;font-weight:800;border-radius:50%;text-align:center;line-height:26px;">${i + 1}</span>
       </td>
-      <td style="padding:10px 0 10px 8px;font-size:14px;color:#e2e8f0;line-height:1.7;">${thing}</td>
-    </tr>`).join("");
+      <td style="padding:10px 0 10px 8px;font-size:14px;color:#e2e8f0;line-height:1.7;">${title ? `<strong style="color:#f1f5f9;">${title}</strong><br style="line-height:2;" />` : ""}${body}</td>
+    </tr>`;
+  }).join("");
 
   const personaTagHtml = persona !== "general"
     ? `<span style="display:inline-block;background:${meta.accentColor};color:#0f172a;font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;padding:3px 9px;border-radius:20px;margin-left:10px;vertical-align:middle;">${meta.label}</span>`
@@ -664,7 +669,12 @@ function buildTextEmail(brief: DailyBrief, recipientName: string, persona: Perso
     lines.push("");
     lines.push("3 THINGS THAT MATTER TODAY");
     lines.push("-".repeat(40));
-    (brief.three_things ?? []).forEach((t, i) => lines.push(`${i + 1}. ${t}`));
+    (brief.three_things ?? []).forEach((t, i) => {
+      const isObj = t && typeof t === "object" && !Array.isArray(t);
+      const title = isObj ? (t as Record<string, string>).title ?? "" : "";
+      const body = isObj ? (t as Record<string, string>).body ?? String(t) : String(t);
+      lines.push(`${i + 1}. ${title ? title + " — " : ""}${body}`);
+    });
   }
 
   const rationale = brief.action_rationale ?? {};
@@ -829,25 +839,10 @@ Deno.serve(async (req: Request) => {
 
         const todayUtc = new Date().toISOString().slice(0, 10);
 
-        const { data: brief, error: briefErr } = await db
-          .from("daily_brief")
-          .select("*")
-          .eq("brief_date", todayUtc)
-          .maybeSingle();
-
-        if (briefErr) throw new Error(`Brief fetch error: ${briefErr.message}`);
-        if (!brief) {
-          return new Response(JSON.stringify({ error: "No brief available for today yet" }), {
-            status: 404,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
         const { data: subscribers, error: subErr } = await db
           .from("email_subscriptions")
           .select("id, email, name, unsubscribe_token, persona")
-          .eq("active", true)
-          .eq("confirmed", true);
+          .eq("active", true);
 
         if (subErr) throw new Error(`Subscribers fetch error: ${subErr.message}`);
         if (!subscribers || subscribers.length === 0) {
@@ -856,7 +851,7 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-        const dateStr = new Date(brief.brief_date).toLocaleDateString("en-GB", {
+        const dateStr = new Date(todayUtc).toLocaleDateString("en-GB", {
           weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
         });
 
@@ -868,13 +863,19 @@ Deno.serve(async (req: Request) => {
           try {
             const persona: PersonaId = (sub.persona as PersonaId) ?? "general";
 
-            const personaBrief = await db
+            const { data: personaBriefData, error: pbErr } = await db
               .from("daily_brief")
               .select("*")
               .eq("brief_date", todayUtc)
               .eq("persona", persona)
-              .maybeSingle()
-              .then(r => (r.data as DailyBrief | null) ?? (brief as DailyBrief));
+              .maybeSingle();
+
+            if (pbErr || !personaBriefData) {
+              errors.push(`${sub.email}: No brief found for persona '${persona}' on ${todayUtc}`);
+              failed++;
+              continue;
+            }
+            const personaBrief = personaBriefData as DailyBrief;
 
             const html = buildHtmlEmail(personaBrief, sub.name, sub.unsubscribe_token, supabaseUrl, persona, appUrl);
             const text = buildTextEmail(personaBrief, sub.name, persona);

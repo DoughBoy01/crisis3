@@ -356,13 +356,25 @@ function buildPersonaPrompt(
   const newsSection = buildNewsSection(feeds);
   const priceMovesSection = buildPriceMovesSection(feeds);
 
+  const nowUtc = new Date();
+  const dayOfWeek = nowUtc.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  const isWeekend = nowUtc.getUTCDay() === 0 || nowUtc.getUTCDay() === 6;
+  const dateLabel = nowUtc.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
   lines.push(`You are a procurement intelligence analyst writing a morning brief FOR A SPECIFIC READER.`);
   lines.push(`READER PROFILE: ${cfg.role}.`);
   lines.push(`YOUR LENS: Focus depth on ${cfg.focusDescription}.`);
-  lines.push(`Your monitoring window is 22:00–07:00 GMT (overnight). Reader receives this at 07:00 GMT.`);
+  lines.push(`Today is ${dateLabel}. Reader receives this brief at 07:00 GMT.`);
   lines.push(`Be direct, specific, and actionable. No waffle. Use plain English.`);
-  lines.push(`All price moves are vs the 22:00 GMT baseline.`);
+  lines.push(`All price moves are day-over-day (previous close vs latest available close).`);
   lines.push("");
+  if (isWeekend) {
+    lines.push(`NOTE: Today is ${dayOfWeek}. Futures markets are closed or have limited weekend trading.`);
+    lines.push(`Price moves shown are Friday close vs Thursday close. Use these to assess the WEEKLY position and inform decisions for Monday's market open.`);
+    lines.push(`For weekend briefs: shift focus to news intelligence, geopolitical developments, and strategic positioning ahead of Monday.`);
+    lines.push(`Do NOT say "no movements" just because weekend price data is flat — instead discuss the strategic context and what to watch on Monday.`);
+    lines.push("");
+  }
 
   lines.push("=== PERSONA PRIORITY FRAMEWORK ===");
   lines.push(`PRIMARY SECTORS (write with full analytical depth — 3-5 sentences each):`);
@@ -408,6 +420,11 @@ function buildPersonaPrompt(
   lines.push("");
   lines.push("=== INTELLIGENCE GUIDANCE (all personas) ===");
   lines.push("- Magnitude tiers are shown as [SIGNIFICANT/NOTABLE/MODERATE/MINOR/FLAT] — use these to prioritise");
+  lines.push("- NEVER produce a thin brief. Even if all price moves are FLAT, there is ALWAYS relevant intelligence:");
+  lines.push("  (a) explain what the current price level means in historical/seasonal context");
+  lines.push("  (b) discuss geopolitical developments that may move markets this week");
+  lines.push("  (c) identify what upcoming data releases or events this reader should prepare for");
+  lines.push("  (d) provide strategic context — are we at a decision point, a quiet period before a catalyst, etc.");
   lines.push("- Compound signals: if Brent SIGNIFICANT + Red Sea news + GBP weakness all present simultaneously,");
   lines.push("  this is a COMPOUNDING COST PRESSURE scenario — call it out explicitly in compounding_risk");
   lines.push("- Gold/silver rising WITH conflict headlines = risk-off flight to safety (different from commodity demand)");
@@ -415,9 +432,11 @@ function buildPersonaPrompt(
   lines.push("- Cross reference: a wheat move is more significant if: (a) near 10-yr high, (b) in HIGH seasonal demand, (c) Black Sea headlines present");
   lines.push("- FX always means import costs: GBP/USD -0.4% = ~0.4% rise in all USD-denominated commodity import costs");
   lines.push("- Bank of England / OBR news drives GBP and UK interest rate expectations — always link to import cost");
+  lines.push("- When news headlines are present for a sector, always write action_rationale for that sector even if the price move is FLAT");
+  lines.push("- A FLAT price move with active conflict news is itself a signal: supply disruption risk not yet priced in");
   lines.push("");
 
-  lines.push(`=== PRICE MOVES (22:00–07:00 GMT) ===`);
+  lines.push(`=== PRICE MOVES (day-over-day, latest available close vs prior close) ===`);
   lines.push(priceMovesSection);
   lines.push("");
   lines.push(historicalContextSection);

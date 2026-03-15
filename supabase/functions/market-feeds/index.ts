@@ -75,9 +75,7 @@ function filterBySince(items: { title: string; summary: string; published: strin
 
 function monitoringWindowStart(): number {
   const now = new Date();
-  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const windowStartToday = new Date(todayUtc.getTime() - 2 * 60 * 60 * 1000);
-  return windowStartToday.getTime();
+  return now.getTime() - 18 * 60 * 60 * 1000;
 }
 
 async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
