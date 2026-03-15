@@ -129,6 +129,44 @@ export interface SupplyExposureItem {
   linkedZones: string[];
 }
 
+export type ScoutSignal = 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'WATCH';
+
+export type ScoutCategory = 'energy' | 'agricultural' | 'freight' | 'fertilizer' | 'metals' | 'fx' | 'geopolitical' | 'policy';
+
+export interface ScoutSource {
+  title: string;
+  url: string;
+}
+
+export interface TopicIntelligence {
+  topic_id: string;
+  topic_label: string;
+  category: ScoutCategory;
+  query: string;
+  findings: string[];
+  sources: ScoutSource[];
+  summary: string;
+  signal: ScoutSignal;
+  prompt_tokens: number;
+  completion_tokens: number;
+}
+
+export interface ScoutingRun {
+  id: string;
+  run_date: string;
+  triggered_at: string;
+  completed_at: string | null;
+  duration_ms: number | null;
+  forced: boolean;
+  model: string;
+  topics_queried: string[];
+  intelligence: TopicIntelligence[];
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  error: string | null;
+  created_at: string;
+}
+
 export type PlaybookTrigger = 'PRICE_SPIKE' | 'SUPPLY_DISRUPTION' | 'GEOPOLITICAL' | 'FX_STRESS' | 'FREIGHT_SURGE';
 
 export interface PlaybookStep {

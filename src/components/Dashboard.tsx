@@ -25,8 +25,10 @@ import { useMarketFeeds, getBrentFromFeeds, getFxFromFeeds } from '@/hooks/useMa
 import { useDailyBrief } from '@/hooks/useDailyBrief';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useHistoricalContext } from '@/hooks/useHistoricalContext';
-import { ChevronDown, ChevronUp, Shield, BarChart2, Newspaper, Filter, Ship, Clock, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Shield, BarChart2, Newspaper, Filter, Ship, Clock, TrendingUp, Radar } from 'lucide-react';
 import CommodityMiniChart from './CommodityMiniChart';
+import ScoutIntelPanel from './ScoutIntelPanel';
+import { useScoutIntel } from '@/hooks/useScoutIntel';
 
 const NEWS_SOURCES_LIST = [
   "BBC Business RSS",
@@ -169,6 +171,7 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
   } = useMarketFeeds();
 
   const { context: historicalContext, loading: historicalLoading } = useHistoricalContext();
+  const { run: scoutRun, loading: scoutLoading } = useScoutIntel();
 
   const marketItems = useMemo(() => deriveMarketItems(feeds, historicalContext), [feeds, historicalContext]);
   const overnightStats = useMemo(() => deriveOvernightStats(feeds), [feeds]);
@@ -477,6 +480,18 @@ export default function Dashboard({ onOpenDiagnostics }: { onOpenDiagnostics?: (
                 ) : (
                   <ActionPanel actions={actionItems} activeSector={activeSector} aiRationale={dailyBrief?.action_rationale} loading={feedsLoading} />
                 )}
+              </div>
+            </div>
+
+            {/* Scout Intelligence — full width */}
+            <div className="rounded-xl border border-border/40 bg-slate-800/30 overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30 bg-slate-800/40">
+                <Radar size={13} className="text-sky-400/70" />
+                <span className="text-xs font-bold text-slate-300 tracking-wider uppercase">Scout Intelligence</span>
+                <span className="ml-auto text-[10px] text-muted-foreground/40">overnight · AI-gathered</span>
+              </div>
+              <div className="p-4">
+                <ScoutIntelPanel run={scoutRun} loading={scoutLoading} />
               </div>
             </div>
 
