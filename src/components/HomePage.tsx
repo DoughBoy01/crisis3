@@ -127,7 +127,7 @@ export default function HomePage({ onEnter }: HomePageProps) {
             and shipping disruptions that hit overnight, ranked by impact on your supply chain.
           </p>
 
-          <p className="text-sm text-slate-500 mb-10">Tailored to your role. Delivered at 07:00 UTC. Free.</p>
+          <p className="text-sm text-slate-500 mb-10">Tailored to your role. Delivered at 07:00 UTC.</p>
 
           <div className="mb-5">
             <HeroSubscribeForm />
@@ -299,7 +299,7 @@ export default function HomePage({ onEnter }: HomePageProps) {
             <span className="text-slate-400 font-light">Your inbox should too.</span>
           </h2>
           <p className="text-slate-500 text-sm mb-3">
-            Free. Delivered at 07:00 UTC. Unsubscribe in one click.
+            Delivered at 07:00 UTC. Unsubscribe in one click.
           </p>
           <p className="text-slate-600 text-xs mb-10">
             The live dashboard is also available — no sign-up required.
