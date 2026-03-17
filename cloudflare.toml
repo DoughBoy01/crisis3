@@ -1,0 +1,13 @@
+# Cloudflare Pages Configuration
+# This file is read by Cloudflare Pages during build/deploy
+
+[build]
+command = "npm run build"
+output_directory = "dist"
+
+# DO NOT set deploy_command - Cloudflare Pages handles this automatically
+# If you see "Executing user deploy command: npx wrangler deploy" in logs,
+# go to Dashboard > Settings > Builds and remove the custom deploy command
+
+[build.environment]
+NODE_VERSION = "18"
