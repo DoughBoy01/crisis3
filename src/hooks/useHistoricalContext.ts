@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getHistoricalContext } from '@/lib/api';
 
 export interface CommodityPercentile {
   commodity_id: string;
@@ -122,28 +122,18 @@ export function useHistoricalContext(): {
       setError(null);
 
       try {
-        const [percResult, seasonalResult, conflictResult] = await Promise.all([
-          supabase
-            .from('commodity_percentiles')
-            .select('*')
-            .eq('lookback_years', 10),
-          supabase
-            .from('commodity_seasonal_patterns')
-            .select('*'),
-          supabase
-            .from('conflict_zone_baselines')
-            .select('*'),
+        // Fetch from new API endpoints concurrently
+        const [percentilesData, seasonalData, conflictBaselinesData] = await Promise.all([
+          getHistoricalContext('percentiles'),
+          getHistoricalContext('seasonality'),
+          getHistoricalContext('conflicts')
         ]);
-
-        if (percResult.error) throw new Error(percResult.error.message);
-        if (seasonalResult.error) throw new Error(seasonalResult.error.message);
-        if (conflictResult.error) throw new Error(conflictResult.error.message);
 
         if (!cancelled) {
           setContext({
-            percentiles: (percResult.data ?? []) as CommodityPercentile[],
-            seasonal: (seasonalResult.data ?? []) as SeasonalPattern[],
-            conflictBaselines: (conflictResult.data ?? []) as ConflictZoneBaseline[],
+            percentiles: (percentilesData || []).filter(p => p.lookback_years === 10),
+            seasonal: seasonalData || [],
+            conflictBaselines: conflictBaselinesData || [],
           });
         }
       } catch (err) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { getLatestScoutIntel } from "@/lib/api";
 import type { ScoutingRun } from "@/types";
 
 interface ScoutIntelState {
@@ -17,18 +17,11 @@ export function useScoutIntel(): ScoutIntelState {
     async function fetch() {
       setLoading(true);
       setError(null);
-      const { data, error: err } = await supabase
-        .from("scouting_runs")
-        .select("*")
-        .not("completed_at", "is", null)
-        .order("run_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (err) {
-        setError(err.message);
-      } else {
+      try {
+        const data = await getLatestScoutIntel();
         setRun(data as ScoutingRun | null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
       }
       setLoading(false);
     }

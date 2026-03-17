@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { updatePassword as apiUpdatePassword } from '@/lib/api';
 import { KeyRound, CheckCircle, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,14 +28,12 @@ export default function ChangePasswordPanel() {
 
     setLoading(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-      if (updateError) {
-        setError(updateError.message);
-        return;
-      }
+      await apiUpdatePassword(newPassword);
       setSuccess(true);
       setNewPassword('');
       setConfirm('');
+    } catch (updateError: any) {
+      setError(updateError.message || String(updateError));
     } finally {
       setLoading(false);
     }

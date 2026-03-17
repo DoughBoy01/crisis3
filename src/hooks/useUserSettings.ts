@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { getUserSettings, updateUserSettings as updateUserSettingsApi } from "@/lib/api";
 
 const SESSION_KEY = "dawnsignal_session_id";
 const DEFAULT_TZ = "Europe/London";
@@ -32,17 +32,14 @@ export function useUserSettings(): UserSettingsState {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const sessionId = getOrCreateSessionId();
     (async () => {
       try {
-        const { data } = await supabase
-          .from("user_settings")
-          .select("timezone")
-          .eq("session_id", sessionId)
-          .maybeSingle();
+        const data = await getUserSettings();
         if (data?.timezone) {
           setSettings({ timezone: data.timezone });
         }
+      } catch (err) {
+        // fallback to default
       } finally {
         setLoading(false);
       }
@@ -51,11 +48,7 @@ export function useUserSettings(): UserSettingsState {
 
   const updateTimezone = useCallback(async (tz: string) => {
     setSettings({ timezone: tz });
-    const sessionId = getOrCreateSessionId();
-    await supabase.from("user_settings").upsert(
-      { session_id: sessionId, timezone: tz, updated_at: new Date().toISOString() },
-      { onConflict: "session_id" }
-    );
+    await updateUserSettingsApi({ timezone: tz }).catch(err => console.error(err));
   }, []);
 
   return { settings, loading, updateTimezone };

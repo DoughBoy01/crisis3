@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { login } from '@/lib/api';
 import { Lock, AlertCircle, Loader } from 'lucide-react';
 
 interface AdminLoginProps {
@@ -19,22 +19,16 @@ export default function AdminLogin({ onAuthenticated, onBack }: AdminLoginProps)
     setLoading(true);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { user } = await login(email, password);
 
-      if (authError) {
-        setError('Invalid email or password.');
-        return;
-      }
-
-      const role = data.user?.app_metadata?.role;
-      if (role !== 'admin') {
-        const { error: signOutError } = await supabase.auth.signOut();
-        if (signOutError) console.error('[AdminLogin] signOut failed:', signOutError);
+      if (user?.role !== 'admin') {
         setError('Access denied. Admin only.');
         return;
       }
 
       onAuthenticated();
+    } catch (err: any) {
+      setError(err.message || 'Invalid email or password.');
     } finally {
       setLoading(false);
     }

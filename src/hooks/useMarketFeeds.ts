@@ -1,7 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "@/lib/supabase";
-
-const AUTO_REFRESH_MS = 15 * 60 * 1000;
 
 export interface NewsItem {
   title: string;
@@ -65,97 +62,132 @@ export interface FeedState {
   refresh: () => void;
 }
 
-const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-feeds`;
-const HEADERS = {
-  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-  "Content-Type": "application/json",
+// WebSocket connection URL - adjust based on your deployment
+const getWebSocketUrl = (): string => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  return `${protocol}//${host}/api/feed_cache/connect`;
 };
 
-async function persistToCache(payload: FeedPayload): Promise<void> {
-  await supabase.from("feed_cache").insert({
-    fetched_at: payload.fetched_at,
-    payload,
-  });
-}
+const RECONNECT_DELAY_MS = 3000;
+const MAX_RECONNECT_DELAY_MS = 30000;
 
 export function useMarketFeeds(): FeedState {
   const [data, setData] = useState<FeedPayload | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
-  const [nextRefreshIn, setNextRefreshIn] = useState(AUTO_REFRESH_MS / 1000);
+  const [nextRefreshIn, setNextRefreshIn] = useState(0);
 
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectDelayRef = useRef(RECONNECT_DELAY_MS);
   const lastFetchTimeRef = useRef<number | null>(null);
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
 
-  const fetchFeeds = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const connect = useCallback(() => {
+    if (unmountedRef.current) return;
+
     try {
-      const res = await fetch(FUNCTION_URL, { headers: HEADERS });
-      if (!res.ok) throw new Error(`Edge function returned ${res.status}`);
-      const json = (await res.json()) as FeedPayload;
-      setData(json);
-      setLastFetchedAt(json.fetched_at);
-      lastFetchTimeRef.current = Date.now();
-      setSecondsSinceRefresh(0);
-      setNextRefreshIn(AUTO_REFRESH_MS / 1000);
-      persistToCache(json).catch((err) => console.error("[useMarketFeeds] cache persist failed:", err));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
+      const ws = new WebSocket(getWebSocketUrl());
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('[useMarketFeeds] WebSocket connected');
+        setError(null);
+        setLoading(false);
+        reconnectDelayRef.current = RECONNECT_DELAY_MS; // Reset backoff on successful connection
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as FeedPayload;
+          setData(payload);
+          setLastFetchedAt(payload.fetched_at);
+          lastFetchTimeRef.current = Date.now();
+          setSecondsSinceRefresh(0);
+          setError(null);
+        } catch (err) {
+          console.error('[useMarketFeeds] Failed to parse message:', err);
+        }
+      };
+
+      ws.onerror = (event) => {
+        console.error('[useMarketFeeds] WebSocket error:', event);
+        setError('WebSocket connection error');
+      };
+
+      ws.onclose = (event) => {
+        console.log('[useMarketFeeds] WebSocket closed:', event.code, event.reason);
+        wsRef.current = null;
+
+        if (!unmountedRef.current) {
+          setLoading(true);
+          setError('Connection lost, reconnecting...');
+
+          // Exponential backoff for reconnection
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, reconnectDelayRef.current);
+
+          reconnectDelayRef.current = Math.min(
+            reconnectDelayRef.current * 2,
+            MAX_RECONNECT_DELAY_MS
+          );
+        }
+      };
+    } catch (err) {
+      console.error('[useMarketFeeds] Failed to create WebSocket:', err);
+      setError(err instanceof Error ? err.message : 'Failed to connect');
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchFeeds();
-  }, [fetchFeeds]);
-
-  useEffect(() => {
-    refreshTimerRef.current = setInterval(fetchFeeds, AUTO_REFRESH_MS);
-    return () => {
-      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
-    };
-  }, [fetchFeeds]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("feed_cache_updates")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "feed_cache" },
-        (payload) => {
-          const updated = payload.new as { payload: FeedPayload; fetched_at: string } | null;
-          if (!updated?.payload) return;
-          setData(updated.payload);
-          setLastFetchedAt(updated.fetched_at ?? updated.payload.fetched_at);
-          lastFetchTimeRef.current = Date.now();
-          setSecondsSinceRefresh(0);
-          setNextRefreshIn(AUTO_REFRESH_MS / 1000);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  const refresh = useCallback(() => {
+    // Send a ping to request fresh data (if needed)
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send('PING');
+    }
   }, []);
 
+  // Initial connection
+  useEffect(() => {
+    unmountedRef.current = false;
+    connect();
+
+    return () => {
+      unmountedRef.current = true;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'Component unmounted');
+        wsRef.current = null;
+      }
+    };
+  }, [connect]);
+
+  // Timer to track seconds since last refresh
   useEffect(() => {
     const ticker = setInterval(() => {
       if (lastFetchTimeRef.current) {
         const elapsed = Math.floor((Date.now() - lastFetchTimeRef.current) / 1000);
         setSecondsSinceRefresh(elapsed);
-        const remaining = Math.max(0, AUTO_REFRESH_MS / 1000 - elapsed);
-        setNextRefreshIn(remaining);
       }
     }, 1000);
     return () => clearInterval(ticker);
   }, []);
 
-  return { data, loading, error, lastFetchedAt, secondsSinceRefresh, nextRefreshIn, refresh: fetchFeeds };
+  return {
+    data,
+    loading,
+    error,
+    lastFetchedAt,
+    secondsSinceRefresh,
+    nextRefreshIn,
+    refresh
+  };
 }
 
 export function getBrentFromFeeds(feeds: FeedPayload | null): FeedSource | null {

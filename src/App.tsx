@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getUser, logout } from '@/lib/api';
 import Dashboard from './components/Dashboard';
 import DiagnosticsPage from './components/DiagnosticsPage';
 import HomePage from './components/HomePage';
@@ -13,22 +13,16 @@ function App() {
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const role = data.session?.user?.app_metadata?.role;
-      setIsAdmin(role === 'admin');
-      setSessionChecked(true);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        setIsAdmin(false);
-        return;
-      }
-      const role = session.user?.app_metadata?.role;
-      if (role === 'admin') setIsAdmin(true);
-    });
-
-    return () => subscription.unsubscribe();
+    getUser()
+      .then((data) => {
+        if (data && data.user) {
+          setIsAdmin(data.user.role === 'admin');
+        } else {
+          setIsAdmin(false);
+        }
+      })
+      .catch(() => setIsAdmin(false))
+      .finally(() => setSessionChecked(true));
   }, []);
 
   if (!sessionChecked) return null;
@@ -66,7 +60,7 @@ function App() {
         onOpenDiagnostics={isAdmin ? () => setView('diagnostics') : undefined}
         onAdminLogin={!isAdmin ? () => setView('admin-login') : undefined}
         onAdminSignOut={isAdmin ? async () => {
-          await supabase.auth.signOut();
+          await logout();
           setIsAdmin(false);
         } : undefined}
         isAdmin={isAdmin}

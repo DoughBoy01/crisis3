@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { getFeedCache } from "@/lib/api";
 import type { FeedPayload, YahooQuote } from "./useMarketFeeds";
 
 export interface PriceDiff {
@@ -31,17 +31,15 @@ async function fetchLatestForDate(dateStr: string): Promise<{ fetched_at: string
   const startOfDay = `${dateStr}T00:00:00Z`;
   const endOfDay = `${dateStr}T23:59:59Z`;
 
-  const { data, error } = await supabase
-    .from("feed_cache")
-    .select("fetched_at, payload")
-    .gte("fetched_at", startOfDay)
-    .lte("fetched_at", endOfDay)
-    .order("fetched_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return data as { fetched_at: string; payload: FeedPayload };
+  try {
+    const allCaches = await getFeedCache();
+    // find the first one that matches the date range
+    const match = allCaches.find((c: any) => c.fetched_at >= startOfDay && c.fetched_at <= endOfDay);
+    if (!match) return null;
+    return { fetched_at: match.fetched_at, payload: match.payload as FeedPayload };
+  } catch {
+    return null;
+  }
 }
 
 function toDateStr(date: Date): string {

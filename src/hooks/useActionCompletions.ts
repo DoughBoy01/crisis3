@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { getActionCompletions, completeAction } from "@/lib/api";
 
 const SESSION_KEY = "dawnsignal_session_id";
 
@@ -31,18 +31,14 @@ export function useActionCompletions(): UseActionCompletionsResult {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const sessionId = getSessionId();
-    const today = todayUTC();
     (async () => {
       try {
-        const { data } = await supabase
-          .from("action_completions")
-          .select("action_id")
-          .eq("session_id", sessionId)
-          .eq("completed_date", today);
-        if (data) {
-          setCompleted(data.map((r) => r.action_id));
+        const completedIds = await getActionCompletions();
+        if (completedIds) {
+          setCompleted(completedIds);
         }
+      } catch (err) {
+        console.error("Error fetching action completions:", err);
       } finally {
         setLoading(false);
       }
@@ -50,29 +46,14 @@ export function useActionCompletions(): UseActionCompletionsResult {
   }, []);
 
   const toggle = useCallback(async (actionId: string) => {
-    const sessionId = getSessionId();
-    const today = todayUTC();
     const isCompleted = completed.includes(actionId);
 
     if (isCompleted) {
       setCompleted((prev) => prev.filter((id) => id !== actionId));
-      await supabase
-        .from("action_completions")
-        .delete()
-        .eq("session_id", sessionId)
-        .eq("action_id", actionId)
-        .eq("completed_date", today);
+      await completeAction(actionId, false).catch(err => console.error(err));
     } else {
       setCompleted((prev) => [...prev, actionId]);
-      await supabase.from("action_completions").upsert(
-        {
-          session_id: sessionId,
-          action_id: actionId,
-          completed_date: today,
-          completed_at: new Date().toISOString(),
-        },
-        { onConflict: "session_id,action_id,completed_date" }
-      );
+      await completeAction(actionId, true).catch(err => console.error(err));
     }
   }, [completed]);
 

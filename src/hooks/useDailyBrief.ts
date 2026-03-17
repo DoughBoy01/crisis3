@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { getDailyBrief as fetchApiDailyBrief } from "@/lib/api";
 import type { PersonaId } from "@/components/PersonaBar";
 import type { FeedPayload } from "./useMarketFeeds";
 
@@ -55,14 +55,9 @@ export function useDailyBrief(persona: PersonaId): DailyBriefState {
       setLoading(true);
       setBrief(null);
       try {
-        const { data } = await supabase
-          .from("daily_brief")
-          .select("*")
-          .eq("brief_date", todayUtc())
-          .eq("persona", persona)
-          .maybeSingle();
+        const data = await fetchApiDailyBrief();
 
-        if (data) {
+        if (data && data.brief_date === todayUtc() && data.persona === persona) {
           setBrief(data as DailyBrief);
           setCached(true);
         } else {

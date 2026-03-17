@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getDismissedIntel, dismissIntel, revertDismissedIntel, getUser } from '@/lib/api';
 import type { TopicIntelligence } from '@/types';
 
 export interface DismissedIntelRecord {
@@ -31,19 +31,31 @@ export function useDismissedIntel(): UseDismissedIntelReturn {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('dismissed_intel')
-        .select('*')
-        .order('dismissed_at', { ascending: false });
-      setDismissed((data as DismissedIntelRecord[]) ?? []);
-      setLoading(false);
+      try {
+        const [scoutIds, storyIds] = await Promise.all([
+           getDismissedIntel('scout_topic'),
+           getDismissedIntel('news_story')
+        ]);
+        
+        const mappedScout: DismissedIntelRecord[] = scoutIds.map(id => ({
+           id, type: 'scout_topic', ref_id: id, ref_label: '', category: null, signal: null, reason: null, dismissed_by: null, dismissed_at: new Date().toISOString(), scouting_run_id: null
+        }));
+        const mappedStories: DismissedIntelRecord[] = storyIds.map(id => ({
+           id, type: 'news_story', ref_id: id, ref_label: '', category: null, signal: null, reason: null, dismissed_by: null, dismissed_at: new Date().toISOString(), scouting_run_id: null
+        }));
+
+        setDismissed([...mappedScout, ...mappedStories]);
+      } catch(err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
   const dismissTopic = useCallback(async (topic: TopicIntelligence, runId: string, reason?: string) => {
-    const { data, error: authError } = await supabase.auth.getUser();
-    if (authError || !data.user) return;
-    const user = data.user;
+    const { user } = await getUser().catch(() => ({ user: null }));
+    if (!user) return;
 
     const record = {
       type: 'scout_topic' as const,
@@ -56,21 +68,17 @@ export function useDismissedIntel(): UseDismissedIntelReturn {
       scouting_run_id: runId,
     };
 
-    const { data: insertedTopic, error } = await supabase
-      .from('dismissed_intel')
-      .insert(record)
-      .select()
-      .single();
-
-    if (!error && insertedTopic) {
-      setDismissed(prev => [insertedTopic as DismissedIntelRecord, ...prev]);
+    try {
+      const { id } = await dismissIntel(record);
+      setDismissed(prev => [{ ...record, id, dismissed_at: new Date().toISOString() } as DismissedIntelRecord, ...prev]);
+    } catch(err) {
+      console.error(err);
     }
   }, []);
 
   const dismissStory = useCallback(async (refId: string, title: string) => {
-    const { data, error: authError } = await supabase.auth.getUser();
-    if (authError || !data.user) return;
-    const user = data.user;
+    const { user } = await getUser().catch(() => ({ user: null }));
+    if (!user) return;
 
     const record = {
       type: 'news_story' as const,
@@ -83,27 +91,25 @@ export function useDismissedIntel(): UseDismissedIntelReturn {
       scouting_run_id: null,
     };
 
-    const { data: insertedStory, error } = await supabase
-      .from('dismissed_intel')
-      .insert(record)
-      .select()
-      .maybeSingle();
-
-    if (!error && insertedStory) {
-      setDismissed(prev => [insertedStory as DismissedIntelRecord, ...prev]);
+    try {
+      const { id } = await dismissIntel(record);
+      setDismissed(prev => [{ ...record, id, dismissed_at: new Date().toISOString() } as DismissedIntelRecord, ...prev]);
+    } catch(err) {
+      console.error(err);
     }
   }, []);
 
   const undismiss = useCallback(async (id: string) => {
-    const { error } = await supabase
-      .from('dismissed_intel')
-      .delete()
-      .eq('id', id);
+    const record = dismissed.find(d => d.id === id);
+    if (!record) return;
 
-    if (!error) {
+    try {
+      await revertDismissedIntel(record.type, record.ref_id);
       setDismissed(prev => prev.filter(d => d.id !== id));
+    } catch(err) {
+      console.error(err);
     }
-  }, []);
+  }, [dismissed]);
 
   const isDismissed = useCallback((type: 'scout_topic' | 'news_story', refId: string): boolean => {
     return dismissed.some(d => d.type === type && d.ref_id === refId);

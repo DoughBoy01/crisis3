@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import {
   CheckCircle,
   XCircle,
@@ -44,10 +43,12 @@ interface ServiceResult {
   testedAt?: string;
 }
 
+const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:8788/api' : '/api';
+
 const INITIAL_SERVICES: ServiceResult[] = [
-  { id: 'supabase-db', name: 'Supabase Database', category: 'infrastructure', url: import.meta.env.VITE_SUPABASE_URL + '/rest/v1/', status: 'idle' },
-  { id: 'supabase-auth', name: 'Supabase Auth', category: 'infrastructure', url: import.meta.env.VITE_SUPABASE_URL + '/auth/v1/health', status: 'idle' },
-  { id: 'supabase-edge', name: 'market-feeds Edge Function', category: 'infrastructure', url: import.meta.env.VITE_SUPABASE_URL + '/functions/v1/market-feeds', status: 'idle' },
+  { id: 'cloudflare-db', name: 'Cloudflare D1 Database', category: 'infrastructure', url: `${API_BASE_URL}/user_settings`, status: 'idle' },
+  { id: 'cloudflare-auth', name: 'Cloudflare Auth', category: 'infrastructure', url: `${API_BASE_URL}/auth/me`, status: 'idle' },
+  { id: 'cloudflare-edge', name: 'market-feeds Worker Function', category: 'infrastructure', url: `${API_BASE_URL}/feed_cache`, status: 'idle' },
   { id: 'yahoo', name: 'Yahoo Finance (Real-time Quotes)', category: 'api', url: 'query1.finance.yahoo.com/v7/finance/quote', status: 'idle' },
   { id: 'eia', name: 'EIA Brent Crude API', category: 'api', url: 'https://api.eia.gov/v2/petroleum/pri/spt/data/', status: 'idle' },
   { id: 'fx', name: 'ExchangeRate.host (GBP FX)', category: 'api', url: 'https://open.er-api.com/v6/latest/GBP', status: 'idle' },
@@ -115,36 +116,38 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
   useEffect(() => {
     (async () => {
       setSubscribersLoading(true);
-      const { data } = await supabase
-        .from('email_subscriptions')
-        .select('id, email, name, persona, active, confirmed, created_at, last_sent_at')
-        .order('created_at', { ascending: false });
-      setSubscribers((data as Subscriber[]) ?? []);
-      setSubscribersLoading(false);
+      try {
+        // TODO: Add API endpoint for email_subscriptions when ready
+        // For now, set empty array as we migrate to Cloudflare
+        setSubscribers([]);
+      } catch (err) {
+        console.error('Failed to fetch subscribers:', err);
+        setSubscribers([]);
+      } finally {
+        setSubscribersLoading(false);
+      }
     })();
   }, []);
 
   useEffect(() => {
     (async () => {
       setPersonaBriefsLoading(true);
-      const todayUtc = new Date().toISOString().slice(0, 10);
-      const { data } = await supabase
-        .from('daily_brief')
-        .select('persona, generated_at, model, prompt_tokens, completion_tokens')
-        .eq('brief_date', todayUtc);
-      const existingMap = new Map((data ?? []).map((b: Record<string, unknown>) => [b.persona as string, b]));
-      setPersonaBriefs(ALL_PERSONAS.map(p => {
-        const b = existingMap.get(p) as Record<string, unknown> | undefined;
-        return {
+      try {
+        // TODO: Add API endpoint for daily_brief by date when ready
+        // For now, show all as not existing during Cloudflare migration
+        setPersonaBriefs(ALL_PERSONAS.map(p => ({
           persona: p,
-          exists: !!b,
-          generated_at: (b?.generated_at as string) ?? null,
-          model: (b?.model as string) ?? null,
-          prompt_tokens: (b?.prompt_tokens as number) ?? null,
-          completion_tokens: (b?.completion_tokens as number) ?? null,
-        };
-      }));
-      setPersonaBriefsLoading(false);
+          exists: false,
+          generated_at: null,
+          model: null,
+          prompt_tokens: null,
+          completion_tokens: null,
+        })));
+      } catch (err) {
+        console.error('Failed to fetch persona briefs:', err);
+      } finally {
+        setPersonaBriefsLoading(false);
+      }
     })();
   }, []);
 
@@ -152,21 +155,24 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
     setServices(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
   }, []);
 
-  const testSupabaseDb = useCallback(async () => {
-    setServiceStatus('supabase-db', { status: 'testing' });
+  const testCloudflareDb = useCallback(async () => {
+    setServiceStatus('cloudflare-db', { status: 'testing' });
     const t0 = Date.now();
     try {
-      const { error } = await supabase.from('user_settings').select('session_id').limit(1);
+      const res = await fetch(`${API_BASE_URL}/user_settings`, {
+        credentials: 'include'
+      });
       const latencyMs = Date.now() - t0;
-      if (error) throw new Error(error.message);
-      setServiceStatus('supabase-db', {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await res.json(); // Validate response is JSON
+      setServiceStatus('cloudflare-db', {
         status: 'ok',
         latencyMs,
-        detail: 'user_settings table reachable',
+        detail: 'D1 database reachable via Workers API',
         testedAt: new Date().toISOString(),
       });
     } catch (e) {
-      setServiceStatus('supabase-db', {
+      setServiceStatus('cloudflare-db', {
         status: 'error',
         latencyMs: Date.now() - t0,
         detail: String(e),
@@ -175,24 +181,24 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
     }
   }, [setServiceStatus]);
 
-  const testSupabaseAuth = useCallback(async () => {
-    setServiceStatus('supabase-auth', { status: 'testing' });
+  const testCloudflareAuth = useCallback(async () => {
+    setServiceStatus('cloudflare-auth', { status: 'testing' });
     const t0 = Date.now();
     try {
-      const res = await fetch(import.meta.env.VITE_SUPABASE_URL + '/auth/v1/health', {
-        headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY },
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        credentials: 'include'
       });
       const latencyMs = Date.now() - t0;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json() as { status?: string };
-      setServiceStatus('supabase-auth', {
+      const json = await res.json() as { user?: any };
+      setServiceStatus('cloudflare-auth', {
         status: 'ok',
         latencyMs,
-        detail: json.status ?? 'healthy',
+        detail: json.user ? `Authenticated as ${json.user.email}` : 'healthy',
         testedAt: new Date().toISOString(),
       });
     } catch (e) {
-      setServiceStatus('supabase-auth', {
+      setServiceStatus('cloudflare-auth', {
         status: 'error',
         latencyMs: Date.now() - t0,
         detail: String(e),
@@ -201,81 +207,29 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
     }
   }, [setServiceStatus]);
 
-  const testEdgeFunction = useCallback(async () => {
-    setServiceStatus('supabase-edge', { status: 'testing' });
+  const testWorkerFunction = useCallback(async () => {
+    setServiceStatus('cloudflare-edge', { status: 'testing' });
     const t0 = Date.now();
     try {
-      const res = await fetch(import.meta.env.VITE_SUPABASE_URL + '/functions/v1/market-feeds', {
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
+      const res = await fetch(`${API_BASE_URL}/feed_cache`, {
+        credentials: 'include'
       });
       const latencyMs = Date.now() - t0;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json() as Record<string, unknown>;
-      setEdgeFeedData(json);
-      const ok = json.sources_ok as number;
-      const total = json.sources_total as number;
-      const allOk = ok === total;
-      setServiceStatus('supabase-edge', {
-        status: allOk ? 'ok' : 'warn',
+      const json = await res.json() as any[];
+      const feedCount = Array.isArray(json) ? json.length : 0;
+      setEdgeFeedData({ feeds: json, count: feedCount });
+      setServiceStatus('cloudflare-edge', {
+        status: feedCount > 0 ? 'ok' : 'warn',
         latencyMs,
-        detail: `${ok}/${total} sources responded. Overall accuracy: ${json.overall_accuracy_score}%`,
-        meta: { sources_ok: ok, sources_total: total, overall_accuracy_score: json.overall_accuracy_score },
+        detail: `${feedCount} feed cache entries available`,
+        meta: { count: feedCount },
         testedAt: new Date().toISOString(),
       });
 
-      const sources = json.sources as Record<string, unknown>[];
-      const sourceIdMap: Record<string, string> = {
-        'Yahoo Finance': 'yahoo',
-        'EIA Brent Crude': 'eia',
-        'ExchangeRate.host FX': 'fx',
-        'AHDB RSS': 'ahdb',
-        'BBC Business RSS': 'bbc',
-        'Al Jazeera RSS': 'aljazeera',
-        'Farmers Weekly RSS': 'fwi',
-        'Bank of England RSS': 'boe',
-        'OBR RSS': 'obr',
-        'Guardian Business RSS': 'guardian',
-        'MarketWatch RSS': 'marketwatch',
-        'USDA RSS': 'usda',
-        'Financial Times RSS': 'ft',
-      };
-
-      for (const source of sources) {
-        const id = sourceIdMap[source.source_name as string];
-        if (!id) continue;
-        const success = typeof source.success === 'boolean' ? source.success : false;
-        const accuracy = typeof source.accuracy_score === 'number' ? source.accuracy_score : 0;
-        const ageMin = typeof source.data_age_minutes === 'number' ? source.data_age_minutes : null;
-        const items = Array.isArray(source.items) ? source.items : undefined;
-        const note = typeof source.note === 'string' ? source.note : undefined;
-        const errMsg = typeof source.error === 'string' ? source.error : null;
-
-        const quotesCount = typeof source.quotes_count === 'number' ? source.quotes_count : undefined;
-        let detail = '';
-        if (!success) {
-          detail = errMsg ?? 'Failed';
-        } else {
-          const parts: string[] = [];
-          if (accuracy !== undefined) parts.push(`Accuracy: ${accuracy}%`);
-          if (ageMin !== null && ageMin !== undefined) parts.push(`Data age: ${ageMin < 60 ? `${ageMin}m` : `${Math.round(ageMin / 60)}h`}`);
-          if (quotesCount !== undefined) parts.push(`${quotesCount} instruments`);
-          else if (items !== undefined) parts.push(`${items.length} matched items`);
-          if (note) parts.push(note);
-          detail = parts.join(' · ');
-        }
-
-        setServiceStatus(id, {
-          status: !success ? 'error' : accuracy < 50 ? 'warn' : 'ok',
-          detail,
-          meta: source,
-          testedAt: new Date().toISOString(),
-        });
-      }
+      // TODO: Parse and display individual feed sources when available
     } catch (e) {
-      setServiceStatus('supabase-edge', {
+      setServiceStatus('cloudflare-edge', {
         status: 'error',
         latencyMs: Date.now() - t0,
         detail: String(e),
@@ -284,53 +238,7 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
     }
   }, [setServiceStatus]);
 
-  const testEIABrentCrude = useCallback(async () => {
-    setServiceStatus('eia', { status: 'testing' });
-    const t0 = Date.now();
-    try {
-      const res = await fetch(import.meta.env.VITE_SUPABASE_URL + '/functions/v1/market-feeds', {
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json() as Record<string, unknown>;
-      const sources = json.sources as Record<string, unknown>[] | undefined;
-      const eiaSource = sources?.find(s => s.source_name === 'EIA Brent Crude');
-      if (!eiaSource) throw new Error('EIA Brent Crude not found in response');
-      const success = eiaSource.success as boolean;
-      const accuracy = eiaSource.accuracy_score as number;
-      const currentPrice = eiaSource.current_price as number | undefined;
-      const period = eiaSource.data_period as string | undefined;
-      const changePct = eiaSource.change_pct as number | undefined;
-      const note = eiaSource.note as string | undefined;
-      const errMsg = eiaSource.error as string | null;
-      const latencyMs = Date.now() - t0;
-      if (!success) throw new Error(errMsg ?? 'EIA returned failure');
-      const detail = [
-        currentPrice !== undefined ? `$${currentPrice.toFixed(2)}/bbl` : null,
-        changePct !== undefined ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : null,
-        period ? `Period: ${period}` : null,
-        `Accuracy: ${accuracy}%`,
-        note,
-      ].filter(Boolean).join(' · ');
-      setServiceStatus('eia', {
-        status: accuracy < 50 ? 'warn' : 'ok',
-        latencyMs,
-        detail,
-        meta: eiaSource,
-        testedAt: new Date().toISOString(),
-      });
-    } catch (e) {
-      setServiceStatus('eia', {
-        status: 'error',
-        latencyMs: Date.now() - t0,
-        detail: String(e),
-        testedAt: new Date().toISOString(),
-      });
-    }
-  }, [setServiceStatus]);
+  // Removed testEIABrentCrude - individual API tests will be added later
 
   const runAll = useCallback(async () => {
     setRunning(true);
@@ -339,13 +247,13 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
     setServices(INITIAL_SERVICES.map(s => ({ ...s, status: 'idle' })));
 
     await Promise.all([
-      testSupabaseDb(),
-      testSupabaseAuth(),
-      testEdgeFunction(),
+      testCloudflareDb(),
+      testCloudflareAuth(),
+      testWorkerFunction(),
     ]);
 
     setRunning(false);
-  }, [testSupabaseDb, testSupabaseAuth, testEdgeFunction]);
+  }, [testCloudflareDb, testCloudflareAuth, testWorkerFunction]);
 
   useEffect(() => {
     runAll();
@@ -497,10 +405,9 @@ export default function DiagnosticsPage({ onBack, onHome }: DiagnosticsPageProps
                     expanded={expanded.has(svc.id)}
                     onToggle={() => toggleExpand(svc.id)}
                     onRetest={
-                      svc.id === 'supabase-db' ? testSupabaseDb :
-                      svc.id === 'supabase-auth' ? testSupabaseAuth :
-                      svc.id === 'supabase-edge' ? testEdgeFunction :
-                      svc.id === 'eia' ? testEIABrentCrude :
+                      svc.id === 'cloudflare-db' ? testCloudflareDb :
+                      svc.id === 'cloudflare-auth' ? testCloudflareAuth :
+                      svc.id === 'cloudflare-edge' ? testWorkerFunction :
                       undefined
                     }
                   />

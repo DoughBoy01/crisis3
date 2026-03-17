@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getAgentRunHistory } from '@/lib/api';
 import {
   CheckCircle,
   XCircle,
@@ -147,13 +147,15 @@ export default function AgentRunHistory() {
 
   const fetchRuns = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('pipeline_runs')
-      .select('*')
-      .order('triggered_at', { ascending: false })
-      .limit(10);
-    setRuns((data ?? []) as PipelineRun[]);
-    setLoading(false);
+    try {
+      const data = await getAgentRunHistory();
+      setRuns(data as PipelineRun[]);
+    } catch (err) {
+      console.error(err);
+      setRuns([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchRuns(); }, [fetchRuns]);

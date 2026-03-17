@@ -1,0 +1,28 @@
+import { useCallback, useState } from 'react';
+import { deleteStory as apiDeleteStory } from '@/lib/api';
+
+interface UseDeleteStoryReturn {
+  deleteStory: (payload: { feedFetchedAt: string; sourceName: string; storyLink: string }) => Promise<boolean>;
+  deleting: boolean;
+}
+
+export function useDeleteStory(): UseDeleteStoryReturn {
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteStory = useCallback(async (payload: { feedFetchedAt: string; sourceName: string; storyLink: string }): Promise<boolean> => {
+    setDeleting(true);
+    try {
+      await apiDeleteStory(payload);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setDeleting(false);
+    }
+  }, []);
+
+  return { deleteStory, deleting };
+}
+
+  return { deleteStory, deleting };
+}
